@@ -29,10 +29,10 @@ function btn(label, onClick, opts = {}) {
 
 const esc = s => String(s).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
 
-/** Tên hiển thị. Online: lấy từ hồ sơ claude.ai của người đó (ván chỉ lưu user id). */
+/** Tên hiển thị. Online trên claude.ai: lấy từ hồ sơ của người đó (ván chỉ lưu user id); qua Firebase: tên tự nhập. */
 function pn(p) {
   if (!p.uid) return p.name;
-  return UI.names[p.uid] || `Người chơi ${p.id + 1}`;
+  return UI.names[p.uid] || p.name || `Người chơi ${p.id + 1}`;
 }
 
 /** Thay ‹id› trong nhật ký / thông báo bằng tên người chơi. */
@@ -1000,7 +1000,7 @@ const UI = {
         'Trong lượt của mình, bấm "Giao dịch" để đổi đất, tiền và thẻ ra tù với người khác. Người kia phải bấm chấp nhận.',
       ]),
       Net.status === 'on' ? sec('Chơi online', [
-        'Mỗi người mở link trang này trên điện thoại của mình (cần tài khoản claude.ai) và vào chung một phòng bằng mã 5 ký tự.',
+        `Mỗi người mở link trang này trên điện thoại của mình${accountNote()} và vào chung một phòng bằng mã 5 ký tự.`,
         'Chỉ máy của người tới lượt mới bấm được đổ xúc xắc, mua đất, xây nhà, kết thúc lượt.',
         'Câu hỏi dành cho người khác (trả giá đấu giá, thiếu tiền, chấp nhận giao dịch, mừng sinh nhật) hiện trên máy của chính người đó.',
         'Đóng trang giữa chừng cũng không sao: mở lại link, chọn "Vào lại phòng" để chơi tiếp. Chủ phòng có thể kết thúc ván bất cứ lúc nào.',

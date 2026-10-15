@@ -2,16 +2,22 @@
 
 /* Chơi online: mỗi người mở cùng link trên máy của mình và vào chung một phòng.
  *
- * Một phòng là document `games/<mã>` trong db của artifact:
+ * Một phòng là document `games/<mã>`:
  *   { app, v, code, host, status: 'lobby' | 'playing' | 'over',
- *     seats: { <user id>: { token, at } | null }, settings, state: G.s | null, rev, wid, at }
- * Ghế chỉ lưu user id; tên lấy từ user.profiles() khi hiển thị.
+ *     seats: { <user id>: { token, at, name? } | null }, settings, state: G.s | null, rev, wid, at }
+ * Nơi lưu phòng tuỳ chỗ trang đang chạy:
+ * - Trên claude.ai: db của artifact. Ghế chỉ lưu user id; tên lấy từ user.profiles() khi hiển thị.
+ *   Không dùng được db (người xem chưa đăng nhập) thì chỉ chơi một máy.
+ * - Nơi khác (GitHub Pages): Firestore + đăng nhập ẩn danh, nếu js/firebase-config.js có cấu hình.
+ *   Không có tài khoản nên mỗi người tự nhập tên, tên lưu trong ghế.
  * Ở phòng chờ, mỗi người chỉ ghi ghế của mình (update gộp theo khoá). Trong ván, chỉ máy được trả lời
  * câu hỏi đang chờ (hoặc của người tới lượt) mới chạy luật và ghi lại cả document; các máy khác nhận
- * qua onSnapshot rồi phát lại hiệu ứng. Không dùng được db (chưa đăng nhập) thì chỉ chơi một máy.
+ * qua onSnapshot rồi phát lại hiệu ứng.
  */
 
 const ROOM_KEY = 'coTyPhu.room';
+const NAME_KEY = 'coTyPhu.name';
+const FIREBASE_SDK = 'https://www.gstatic.com/firebasejs/10.14.1/';
 const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const CODE_LEN = 5;
 const ONLINE_DEFAULTS = { start: 1500, auction: true, parkingPot: false, shuffle: false };
@@ -32,10 +38,58 @@ function rememberRoom(code) {
   } catch (e) { /* trình duyệt chặn lưu trữ */ }
 }
 
+/** db + user của artifact trên claude.ai; null khi người xem không dùng được (chưa đăng nhập…). */
+async function claudeBackend(c) {
+  if (typeof c.use !== 'function') return null;
+  const [db, user] = await Promise.all([c.use('db'), c.use('user')]);
+  if (!db || !user) return null;
+  const uid = await user.id();
+  if (!uid) return null;
+  return { kind: 'claude', db, user, uid, canWrite: await user.can('data.write') };
+}
+
+/** Firestore + đăng nhập ẩn danh, với cùng giao diện nhỏ như db của claude.ai mà Net dùng. */
+async function firebaseBackend(config) {
+  const [appSdk, authSdk, fs] = await Promise.all(['app', 'auth', 'firestore'].map(m => import(`${FIREBASE_SDK}firebase-${m}.js`)));
+  const app = appSdk.initializeApp(config);
+  // Thêm ?rieng vào link: mỗi tab là một người chơi riêng (để thử nhiều người trên một máy)
+  const auth = new URLSearchParams(location.search).has('rieng')
+    ? authSdk.initializeAuth(app, { persistence: authSdk.browserSessionPersistence })
+    : authSdk.getAuth(app);
+  const saved = await new Promise(resolve => {
+    const off = authSdk.onAuthStateChanged(auth, u => {
+      resolve(u);
+      setTimeout(() => off());
+    });
+  });
+  const me = saved || (await authSdk.signInAnonymously(auth)).user;
+  const store = fs.getFirestore(app);
+  const CODES = { 'permission-denied': 'permission_denied', 'resource-exhausted': 'resource_exhausted' };
+  const err = e => ({ code: CODES[e && e.code] || 'unavailable', message: (e && e.message) || '' });
+  const fail = e => { throw err(e); };
+  const snap = s => ({ id: s.id, exists: s.exists(), data: () => s.data(), metadata: s.metadata });
+  const db = {
+    doc(path) {
+      const ref = fs.doc(store, path);
+      return {
+        get: () => fs.getDoc(ref).then(snap, fail),
+        set: data => fs.setDoc(ref, data).catch(fail),
+        update: data => fs.setDoc(ref, data, { merge: true }).catch(fail), // gộp sâu như update của db claude.ai
+        onSnapshot: (next, onError) => fs.onSnapshot(ref, s => next(snap(s)), e => onError && onError(err(e))),
+      };
+    },
+  };
+  return { kind: 'firebase', db, user: null, uid: me.uid, canWrite: true };
+}
+
+/** Ghi chú về tài khoản trong các câu hướng dẫn, tuỳ nơi trang đang chạy. */
+const accountNote = () => (Net.kind === 'claude' ? ' (cần tài khoản claude.ai)' : '');
+
 const Net = {
-  status: 'checking',   // 'checking' | 'on' | 'off' (không dùng được db: chỉ chơi một máy)
+  status: 'checking',   // 'checking' | 'on' | 'off' (không có nơi lưu phòng: chỉ chơi một máy)
+  kind: null,           // 'claude' | 'firebase'
   db: null,
-  user: null,
+  user: null,           // user của claude.ai (Firebase không có, người chơi tự nhập tên)
   uid: null,
   canWrite: null,       // user.can('data.write'): true, false, hoặc null khi nền tảng không cho biết
   code: null,           // mã phòng đang ở
@@ -49,15 +103,14 @@ const Net = {
   retries: 0,
 
   async init(room) {
-    const c = window.claude;
     try {
-      if (!c || typeof c.use !== 'function') throw new Error('no claude');
-      const [db, user] = await Promise.all([c.use('db'), c.use('user')]);
-      if (!db || !user) throw new Error('no db');
-      const uid = await user.id();
-      if (!uid) throw new Error('no user id');
-      Object.assign(Net, { db, user, uid, canWrite: await user.can('data.write') });
+      // Trong claude.ai chỉ dùng db của artifact (trang ở đó không gọi được máy chủ khác)
+      const config = typeof FIREBASE_CONFIG !== 'undefined' ? FIREBASE_CONFIG : null;
+      const backend = window.claude ? await claudeBackend(window.claude) : config ? await firebaseBackend(config) : null;
+      if (!backend) throw new Error('no backend');
+      Object.assign(Net, backend);
     } catch (e) {
+      if (e && e.message !== 'no backend') console.warn('Không bật được chế độ online:', e);
       Net.status = 'off';
       if (UI.setupModal) UI.setupModal.refresh();
       return;
@@ -90,13 +143,24 @@ const Net = {
         return 'Thao tác quá nhanh, hãy thử lại sau vài giây.';
       case 'quota_exceeded':
         return 'Bộ nhớ dữ liệu của trang đã đầy, không tạo thêm phòng được.';
+      case 'permission_denied':
+        return 'Máy chủ Firebase từ chối ghi. Chủ trang cần kiểm tra Rules của Firestore và bật đăng nhập Anonymous.';
       default:
         return fallback + ' Kiểm tra kết nối mạng rồi thử lại.';
     }
   },
 
+  /** Chơi qua Firebase thì phải nhập tên trước khi tạo / vào phòng. */
+  nameMissing() {
+    if (Net.kind !== 'firebase' || cleanName(Room.name)) return false;
+    const msg = 'Hãy nhập tên của bạn trước khi tạo hoặc vào phòng.';
+    if (UI.setupModal) Net.setBusy('', msg);
+    else UI.toast(msg, 'danger');
+    return true;
+  },
+
   async create() {
-    if (Net.busy || Net.status !== 'on') return;
+    if (Net.busy || Net.status !== 'on' || Net.nameMissing()) return;
     Net.setBusy('Đang tạo phòng…');
     try {
       let code = null;
@@ -108,7 +172,7 @@ const Net = {
       const now = Date.now();
       await Net.ref(code).set({
         app: 'co-ty-phu', v: 1, code, host: Net.uid, status: 'lobby',
-        seats: { [Net.uid]: { token: TOKENS[0], at: now } },
+        seats: { [Net.uid]: Room.seat(TOKENS[0], now) },
         settings: { ...ONLINE_DEFAULTS }, state: null, rev: 0, wid: '', at: now,
       });
       Net.setBusy('');
@@ -121,7 +185,7 @@ const Net = {
   /** Vào phòng: còn ở phòng chờ và còn chỗ thì nhận ghế, không thì vào xem. */
   async join(raw) {
     const code = String(raw || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-    if (Net.busy || Net.status !== 'on') return;
+    if (Net.busy || Net.status !== 'on' || Net.nameMissing()) return;
     if (code.length !== CODE_LEN) {
       Net.setBusy('', `Mã phòng gồm ${CODE_LEN} chữ và số, ví dụ K7Q2M.`);
       return;
@@ -144,7 +208,7 @@ const Net = {
     if (d.status === 'lobby' && !(d.seats && d.seats[Net.uid]) && seats.length < MAX_PLAYERS && Net.canWrite !== false) {
       const used = seats.map(x => x.token);
       try {
-        await Net.ref(code).update({ seats: { [Net.uid]: { token: TOKENS.find(t => !used.includes(t)), at: Date.now() } } });
+        await Net.ref(code).update({ seats: { [Net.uid]: Room.seat(TOKENS.find(t => !used.includes(t)), Date.now()) } });
       } catch (e) {
         UI.toast(Net.errorText(e, 'Không nhận được chỗ trong phòng.'), 'danger'); // vẫn vào để xem
       }
@@ -269,12 +333,23 @@ const Net = {
 const Room = {
   modal: null,
   draft: '',
+  name: (() => { try { return localStorage.getItem(NAME_KEY) || ''; } catch (e) { return ''; } })(),
+
+  setName(v) {
+    Room.name = v;
+    try { localStorage.setItem(NAME_KEY, cleanName(v)); } catch (e) { /* trình duyệt chặn lưu trữ */ }
+  },
+
+  /** Ghế của máy này. Chơi qua Firebase thì kèm tên tự nhập (không có hồ sơ tài khoản để tra). */
+  seat(token, at) {
+    return Net.kind === 'firebase' ? { token, at, name: cleanName(Room.name) } : { token, at };
+  },
 
   /** Ghế đang có người, theo thứ tự vào phòng (cũng là thứ tự màu quân). */
   seats(d = Net.doc) {
     return Object.entries((d && d.seats) || {})
       .filter(([, v]) => v)
-      .map(([uid, v]) => ({ uid, token: v.token, at: v.at || 0 }))
+      .map(([uid, v]) => ({ uid, token: v.token, at: v.at || 0, name: cleanName(v.name) }))
       .sort((a, b) => a.at - b.at);
   },
 
@@ -309,7 +384,15 @@ const Room = {
             Net.leave();
           }, { small: true, danger: true }))));
     }
-    wrap.append(el('p', { class: 'muted', text: 'Mỗi người mở link trang này trên điện thoại của mình (cần tài khoản claude.ai) rồi vào chung một phòng bằng mã 5 ký tự. Chỉ máy của người tới lượt mới bấm được.' }));
+    wrap.append(el('p', { class: 'muted', text: `Mỗi người mở link trang này trên điện thoại của mình${accountNote()} rồi vào chung một phòng bằng mã 5 ký tự. Chỉ máy của người tới lượt mới bấm được.` }));
+    if (Net.kind === 'firebase') {
+      const name = el('input', {
+        id: 'my-name', type: 'text', maxlength: 16, placeholder: 'Ví dụ: Lan', value: Room.name,
+        autocomplete: 'nickname', 'aria-label': 'Tên của bạn',
+      });
+      name.addEventListener('input', () => Room.setName(name.value));
+      wrap.append(el('h4', { text: 'Tên của bạn' }), name);
+    }
     if (Net.canWrite === false) {
       wrap.append(el('p', { class: 'warn small', text: 'Bạn đang chỉ có quyền xem trang này nên chỉ xem được ván của người khác. ' + ACCESS_HINT }));
     }
@@ -359,7 +442,7 @@ const Room = {
       el('div', { class: 'room-code-box' },
         el('div', {}, el('div', { class: 'muted small', text: 'Mã phòng' }), el('div', { class: 'room-code', text: d.code })),
         btn('Sao chép mã', () => Room.copyCode(), { small: true })),
-      el('p', { class: 'muted small', text: 'Gửi mã này cho bạn bè. Mỗi người mở cùng link này trên điện thoại (cần tài khoản claude.ai), chọn "Chơi online" rồi nhập mã.' }),
+      el('p', { class: 'muted small', text: `Gửi mã này cho bạn bè. Mỗi người mở cùng link này trên điện thoại${accountNote()}, chọn "Chơi online" rồi nhập mã.` }),
       el('h4', { text: `Người chơi (${seats.length}/${MAX_PLAYERS})` }));
 
     seats.forEach((x, k) => {
@@ -376,7 +459,7 @@ const Room = {
       wrap.append(el('div', { class: 'prow seat' },
         el('span', { class: 'dot', style: `background:${PLAYER_COLORS[k]}` }),
         tok,
-        el('span', { class: 'seat-name', text: UI.names[x.uid] || (me ? 'Bạn' : `Người chơi ${k + 1}`) }),
+        el('span', { class: 'seat-name', text: UI.names[x.uid] || x.name || (me ? 'Bạn' : `Người chơi ${k + 1}`) }),
         me ? el('span', { class: 'badge', text: 'bạn' }) : null,
         x.uid === d.host ? el('span', { class: 'badge host', text: 'chủ phòng' }) : null,
         host && !me ? btn('✕', () => Net.patch({ seats: { [x.uid]: null } }), { small: true, title: 'Mời ra khỏi phòng' }) : null));
@@ -387,7 +470,16 @@ const Room = {
       wrap.append(el('p', { class: 'warn small', text: Net.canWrite === false
         ? 'Bạn chỉ có quyền xem trang này nên chỉ xem được phòng. ' + ACCESS_HINT
         : full ? `Phòng đã đủ ${MAX_PLAYERS} người, bạn đang xem.` : 'Bạn đang xem phòng này.' }));
-      if (!full && Net.canWrite !== false) wrap.append(el('div', { class: 'btns' }, btn('Vào chơi', () => Net.join(d.code), { primary: true })));
+      if (!full && Net.canWrite !== false) {
+        const row = el('div', { class: 'join' });
+        if (Net.kind === 'firebase') {
+          const name = el('input', { id: 'lobby-name', type: 'text', maxlength: 16, placeholder: 'Tên của bạn', value: Room.name, 'aria-label': 'Tên của bạn' });
+          name.addEventListener('input', () => Room.setName(name.value));
+          row.append(name);
+        }
+        row.append(btn('Vào chơi', () => Net.join(d.code), { primary: true }));
+        wrap.append(row);
+      }
     }
 
     const startSel = el('select', { id: 'lobby-start', disabled: !host }, [1000, 1500, 2000, 3000].map(v => el('option', { value: v, selected: v === set.start }, fmt(v))));
@@ -423,7 +515,7 @@ const Room = {
     const players = seats.map(x => {
       const token = TOKENS.includes(x.token) && !used.has(x.token) ? x.token : TOKENS.find(t => !used.has(t));
       used.add(token);
-      return { uid: x.uid, token };
+      return { uid: x.uid, token, name: x.name }; // name chỉ có khi chơi qua Firebase
     });
     G.s = createState({ ...ONLINE_DEFAULTS, ...d.settings, players, room: d.code });
     log(`Ván mới bắt đầu! ${N(cur())} đi trước.`);

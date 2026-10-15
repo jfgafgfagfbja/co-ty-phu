@@ -540,6 +540,7 @@ input:focus-visible, select:focus-visible { outline: 3px solid #ffd43b; outline-
 .join { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
 .join .muted { flex: 1 1 200px; }
 #room-code { width: 8.5em; font-size: 18px; font-weight: 800; letter-spacing: .2em; text-transform: uppercase; }
+#my-name, #lobby-name { width: min(100%, 16em); }
 #room-code::placeholder { font-size: 15px; font-weight: 600; letter-spacing: normal; text-transform: none; }
 .room-code-box {
   display: flex;

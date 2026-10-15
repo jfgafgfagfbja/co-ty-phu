@@ -30,9 +30,39 @@ Trang khai báo capability `db` và `user` của artifact:
   chỉ cần **Contributor**. Người chỉ có quyền xem vẫn vào xem được ván. Người xem chưa đăng nhập (db không có)
   chỉ dùng được chế độ một máy.
 
-Phòng là document `games/<mã>` trong db: `{ host, status, seats: { <user id>: { token, at } }, settings, state, rev, wid }`.
-Ghế chỉ lưu user id, tên lấy qua `user.profiles()` khi hiển thị. `state` là toàn bộ trạng thái ván
-(`G.s`), gồm câu hỏi đang chờ (`pending`), các bước còn lại của chuỗi (`tasks`) và hiệu ứng gần đây (`fx`).
+## Chơi online ngoài claude.ai (GitHub Pages + Firebase)
+
+Khi trang không chạy trong claude.ai, chế độ online dùng Firestore và đăng nhập ẩn danh của Firebase
+(gói Spark miễn phí). Người chơi không cần tài khoản, chỉ cần nhập tên khi tạo hoặc vào phòng.
+
+1. Tạo project trên https://console.firebase.google.com.
+2. Authentication → Sign-in method → bật **Anonymous**; Settings → Authorized domains → thêm tên miền của trang
+   (ví dụ `jfgafgfagfbja.github.io`).
+3. Firestore Database → Create database (Production mode), tab **Rules** dán:
+
+   ```
+   rules_version = '2';
+   service cloud.firestore {
+     match /databases/{database}/documents {
+       match /games/{code} {
+         allow read: if true;
+         allow create, update: if request.auth != null && request.resource.data.app == 'co-ty-phu';
+       }
+     }
+   }
+   ```
+4. Project settings → Your apps → Web app, chép `firebaseConfig` vào `js/firebase-config.js`
+   (`const FIREBASE_CONFIG = { ... }`). Cấu hình này không phải mật khẩu; quyền ghi do Rules ở trên giới hạn.
+
+Thêm `?rieng` vào link để mỗi tab là một người chơi riêng khi thử trên một máy.
+
+## Cách lưu phòng
+
+Phòng là document `games/<mã>` (db của artifact trên claude.ai, hoặc Firestore):
+`{ host, status, seats: { <user id>: { token, at, name? } }, settings, state, rev, wid }`.
+Trên claude.ai ghế chỉ lưu user id, tên lấy qua `user.profiles()`; qua Firebase thì ghế lưu tên tự nhập.
+`state` là toàn bộ trạng thái ván (`G.s`), gồm câu hỏi đang chờ (`pending`), các bước còn lại của chuỗi
+(`tasks`) và hiệu ứng gần đây (`fx`).
 Chỉ máy có quyền trả lời câu hỏi đang chờ (hoặc của người tới lượt) mới chạy luật và ghi lại document;
 các máy khác nhận qua `onSnapshot` rồi phát lại xúc xắc, đường đi của quân và thông báo.
 
@@ -55,7 +85,8 @@ các máy khác nhận qua `onSnapshot` rồi phát lại xúc xắc, đường 
 | `css/style.css` | Giao diện bàn cờ, bảng điều khiển, hộp thoại, phòng chờ |
 | `js/data.js` | Dữ liệu bàn cờ, giá đất, tiền thuê, bộ thẻ |
 | `js/game.js` | Luật chơi dạng máy trạng thái lưu được bằng JSON (đổ xúc xắc, di chuyển, thuê, thẻ, tù, đấu giá, phá sản, giao dịch, lưu ván) |
-| `js/net.js` | Chơi online: tạo / vào phòng, phòng chờ, đồng bộ trạng thái qua db |
+| `js/firebase-config.js` | Cấu hình Firebase cho chế độ online ngoài claude.ai (null = chỉ chơi một máy) |
+| `js/net.js` | Chơi online: tạo / vào phòng, phòng chờ, đồng bộ trạng thái qua db của claude.ai hoặc Firestore |
 | `js/ui.js` | Vẽ bàn cờ, người chơi, nhật ký, câu hỏi, phát lại hiệu ứng, các hộp thoại |
 | `tools/build.js` | Gộp thành một trang HTML duy nhất để đăng lên claude.ai |
 | `tools/mock-claude.js` | db và user giả để thử chế độ online trên máy |
