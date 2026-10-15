@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cờ Tỷ Phú</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1>🎲 Cờ Tỷ Phú</h1>
+    <nav class="top-actions">
+      <button type="button" class="btn ghost room" id="btn-room" hidden></button>
+      <button type="button" class="btn ghost" id="btn-rules" title="Luật chơi">📖 <span class="lbl">Luật chơi</span></button>
+      <button type="button" class="btn ghost" id="btn-end" title="Kết thúc ván">🏁 <span class="lbl">Kết thúc ván</span></button>
+      <button type="button" class="btn ghost" id="btn-new" title="Ván mới">✨ <span class="lbl">Ván mới</span></button>
+    </nav>
+  </header>
+
+  <main class="layout">
+    <section class="board" id="board" aria-label="Bàn cờ">
+      <div class="center">
+        <div class="center-inner">
+          <div class="brand">
+            <div class="logo">CỜ TỶ PHÚ</div>
+            <div class="sub">Hành trình khắp Việt Nam</div>
+          </div>
+          <div class="dice" aria-label="Xúc xắc">
+            <div class="die" id="die1"></div>
+            <div class="die" id="die2"></div>
+          </div>
+          <div id="panel-home" class="panel-home">
+            <div id="panel" class="panel" aria-live="polite"></div>
+          </div>
+          <div class="center-info" id="center-info"></div>
+        </div>
+      </div>
+    </section>
+
+    <aside class="side">
+      <div id="panel-slot"></div>
+      <div class="box">
+        <h3>Người chơi</h3>
+        <div id="players" class="players"></div>
+      </div>
+      <div class="box">
+        <h3>Nhật ký</h3>
+        <ol id="log" class="log"></ol>
+      </div>
+    </aside>
+  </main>
+
+  <div id="modals"></div>
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+
+  <script src="js/data.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/net.js"></script>
+  <script src="js/ui.js"></script>
+</body>
+</html>
