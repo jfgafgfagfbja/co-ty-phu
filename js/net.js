@@ -51,11 +51,16 @@ async function claudeBackend(c) {
 /** Firestore + đăng nhập ẩn danh, với cùng giao diện nhỏ như db của claude.ai mà Net dùng. */
 async function firebaseBackend(config) {
   const [appSdk, authSdk, fs] = await Promise.all(['app', 'auth', 'firestore'].map(m => import(`${FIREBASE_SDK}firebase-${m}.js`)));
-  const app = appSdk.initializeApp(config);
+  const app = appSdk.getApps()[0] || appSdk.initializeApp(config); // bấm "Thử lại" thì dùng lại app đã tạo
   // Thêm ?rieng vào link: mỗi tab là một người chơi riêng (để thử nhiều người trên một máy)
-  const auth = new URLSearchParams(location.search).has('rieng')
-    ? authSdk.initializeAuth(app, { persistence: authSdk.browserSessionPersistence })
-    : authSdk.getAuth(app);
+  let auth;
+  try {
+    auth = new URLSearchParams(location.search).has('rieng')
+      ? authSdk.initializeAuth(app, { persistence: authSdk.browserSessionPersistence })
+      : authSdk.getAuth(app);
+  } catch (e) {
+    auth = authSdk.getAuth(app);
+  }
   const saved = await new Promise(resolve => {
     const off = authSdk.onAuthStateChanged(auth, u => {
       resolve(u);
@@ -85,8 +90,14 @@ async function firebaseBackend(config) {
 /** Ghi chú về tài khoản trong các câu hướng dẫn, tuỳ nơi trang đang chạy. */
 const accountNote = () => (Net.kind === 'claude' ? ' (cần tài khoản claude.ai)' : '');
 
+/** Trang chạy ngoài claude.ai và có cấu hình Firebase: chế độ online phải có, nên báo cả lúc đang kết nối hay bị lỗi. */
+const firebaseConfigured = () => !window.claude && typeof FIREBASE_CONFIG !== 'undefined' && !!FIREBASE_CONFIG;
+
+const withTimeout = (promise, ms) => Promise.race([promise,
+  new Promise((_, reject) => setTimeout(() => reject(new Error('quá thời gian chờ')), ms))]);
+
 const Net = {
-  status: 'checking',   // 'checking' | 'on' | 'off' (không có nơi lưu phòng: chỉ chơi một máy)
+  status: 'checking',   // 'checking' | 'on' | 'off' (không có nơi lưu phòng: chỉ chơi một máy) | 'error' (Firebase không kết nối được)
   kind: null,           // 'claude' | 'firebase'
   db: null,
   user: null,           // user của claude.ai (Firebase không có, người chơi tự nhập tên)
@@ -103,18 +114,27 @@ const Net = {
   retries: 0,
 
   async init(room) {
+    Object.assign(Net, { status: 'checking', error: '' });
+    if (UI.setupModal) UI.setupModal.refresh();
     try {
       // Trong claude.ai chỉ dùng db của artifact (trang ở đó không gọi được máy chủ khác)
-      const config = typeof FIREBASE_CONFIG !== 'undefined' ? FIREBASE_CONFIG : null;
-      const backend = window.claude ? await claudeBackend(window.claude) : config ? await firebaseBackend(config) : null;
+      const backend = window.claude ? await claudeBackend(window.claude)
+        : firebaseConfigured() ? await withTimeout(firebaseBackend(FIREBASE_CONFIG), 20000) : null;
       if (!backend) throw new Error('no backend');
       Object.assign(Net, backend);
     } catch (e) {
-      if (e && e.message !== 'no backend') console.warn('Không bật được chế độ online:', e);
-      Net.status = 'off';
+      if (firebaseConfigured()) {
+        console.warn('Không kết nối được Firebase:', e);
+        Net.status = 'error';
+        Net.error = `Không kết nối được máy chủ chơi online (${(e && (e.code || e.message)) || 'lỗi không rõ'}). ` +
+          'Kiểm tra mạng rồi bấm Thử lại. Nếu đang mở trong Instagram / Facebook / Zalo, hãy mở link bằng Safari hoặc Chrome.';
+      } else {
+        Net.status = 'off';
+      }
       if (UI.setupModal) UI.setupModal.refresh();
       return;
     }
+    Net.error = '';
     Net.status = 'on';
     if (room) Net.join(room);
     else if (UI.setupModal) UI.setupModal.refresh();
@@ -366,6 +386,15 @@ const Room = {
   /** Phần "Chơi online" trong màn hình bắt đầu. */
   setupView(m) {
     const wrap = el('div', { class: 'online' });
+    if (Net.status === 'checking') {
+      wrap.append(el('p', { class: 'panel-msg muted wait', text: 'Đang kết nối máy chủ chơi online…' }));
+      return wrap;
+    }
+    if (Net.status === 'error') {
+      wrap.append(el('div', { class: 'err', text: Net.error }),
+        el('div', { class: 'btns' }, btn('🔄 Thử lại', () => Net.init(), { primary: true })));
+      return wrap;
+    }
     if (Net.code) {
       const playing = isOnline() && myPlayer() && G.s.phase !== 'over';
       wrap.append(el('div', { class: 'resume' },

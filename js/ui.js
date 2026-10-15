@@ -1029,14 +1029,16 @@ const UI = {
     // Có ván một máy lưu dở (và không có phòng online gần đây) thì mở sẵn tab một máy
     const fallback = saved && !lastRoom() ? 'local' : 'online';
     const m = UI.modal(self => {
-      const online = Net.status === 'on' && (UI.setupTab || fallback) !== 'local';
+      // Bản có Firebase thì luôn có tab online (kể cả lúc đang kết nối / lỗi); trên claude.ai chỉ khi db dùng được
+      const canOnline = Net.status === 'on' || (firebaseConfigured() && Net.status !== 'off');
+      const online = canOnline && (UI.setupTab || fallback) !== 'local';
       const wrap = el('div', { class: 'setup' },
         el('div', { class: 'setup-hero' },
           el('div', { class: 'logo', text: 'CỜ TỶ PHÚ' }),
           el('p', { class: 'muted', text: online
             ? 'Hành trình khắp Việt Nam · Mỗi người chơi trên điện thoại của mình'
             : 'Hành trình khắp Việt Nam · Nhiều người chơi trên cùng một máy' })));
-      if (Net.status === 'on') {
+      if (canOnline) {
         wrap.append(el('div', { class: 'tabs', role: 'tablist' },
           [['online', '🌐 Chơi online'], ['local', '📱 Chơi trên một máy']].map(([k, label]) => {
             const on = (k === 'online') === online;

@@ -16,7 +16,8 @@ const html = read('index.html');
 const title = html.match(/<title>[\s\S]*?<\/title>/)[0];
 const links = html.match(/<link [^>]*fonts\.g[^>]*>/g).join('\n');
 const body = html.match(/<body>([\s\S]*?)<script/)[1].trim();
-const scripts = [...html.matchAll(/<script src="([^"]+)"><\/script>/g)].map(m => read(m[1]));
+// Bỏ phần ?v=… (dùng để điện thoại không giữ bản cũ trong bộ nhớ đệm) khi đọc file
+const scripts = [...html.matchAll(/<script src="([^"?]+)(?:\?[^"]*)?"><\/script>/g)].map(m => read(m[1]));
 const code = scripts.join('\n');
 if (code.includes('</script')) throw new Error('Mã JS chứa "</script", không nhúng inline được.');
 

@@ -56,6 +56,9 @@ Khi trang không chạy trong claude.ai, chế độ online dùng Firestore và 
 
 Thêm `?rieng` vào link để mỗi tab là một người chơi riêng khi thử trên một máy.
 
+GitHub Pages cho trình duyệt giữ file trong bộ nhớ đệm 10 phút. Mỗi lần cập nhật, tăng số `?v=` ở các thẻ
+`<link>` / `<script>` trong `index.html` để điện thoại tải bản mới.
+
 ## Cách lưu phòng
 
 Phòng là document `games/<mã>` (db của artifact trên claude.ai, hoặc Firestore):
