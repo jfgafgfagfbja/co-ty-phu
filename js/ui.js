@@ -27,6 +27,8 @@ function btn(label, onClick, opts = {}) {
   return el('button', { type: 'button', class: cls, title: opts.title || null, disabled: !!opts.disabled, onclick: onClick }, label);
 }
 
+const VIEW_KEY = 'coTyPhu.view';
+
 const esc = s => String(s).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
 
 /** Tên hiển thị. Online trên claude.ai: lấy từ hồ sơ của người đó (ván chỉ lưu user id); qua Firebase: tên tự nhập. */
@@ -49,10 +51,37 @@ const youTag = p => (isOnline() && mine(p.id) ? ' (bạn)' : '');
 
 const PIPS = { 1: [4], 2: [2, 6], 3: [2, 4, 6], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] };
 
-function setDie(node, v) {
-  node.replaceChildren(...Array.from({ length: 9 }, (_, k) => el('i', { class: PIPS[v].includes(k) ? 'on' : null })));
+/* Xúc xắc là khối lập phương 6 mặt. Góc xoay [x, y] để mặt v ngửa lên (hướng về người nhìn). */
+const DIE_TURN = { 1: [0, 0], 2: [-90, 0], 3: [0, -90], 4: [0, 90], 5: [90, 0], 6: [0, 180] };
+
+function buildDie(node) {
+  node.replaceChildren(...[1, 2, 3, 4, 5, 6].map(v => el('div', { class: 'face f' + v },
+    Array.from({ length: 9 }, (_, k) => el('i', { class: PIPS[v].includes(k) ? 'on' : null })))));
+  node.spin = { x: 0, y: 0, z: 0 };
+}
+
+/** Đặt mặt v ngửa lên. roll = true: xoay thêm vài vòng cho giống đang lăn. */
+function setDie(node, v, roll = false) {
+  if (!node.spin) buildDie(node);
+  const [bx, by] = DIE_TURN[v], s = node.spin;
+  const next = (cur, base, turns) => Math.ceil((cur - base) / 360) * 360 + base + turns * 360;
+  s.x = roll ? next(s.x, bx, 2 + Math.floor(Math.random() * 2)) : bx;
+  s.y = roll ? next(s.y, by, 1 + Math.floor(Math.random() * 2)) : by;
+  s.z = Math.round(Math.random() * 40 - 20);
+  node.style.transition = roll ? '' : 'none';
+  node.style.transform = `rotateZ(${s.z}deg) rotateX(${s.x}deg) rotateY(${s.y}deg)`;
   node.setAttribute('aria-label', String(v));
 }
+
+/* Nhà và khách sạn vẽ dạng khối nhìn nghiêng. */
+const HOUSE_SVG = '<svg class="bld" viewBox="0 0 24 24" aria-hidden="true">' +
+  '<path d="M14 12 21 8.5V18l-7 3.5z" fill="#1b5e20"/><path d="M3 12h11v9.5H3z" fill="#43a047"/>' +
+  '<path d="M3 12 8.5 5.5 14 12z" fill="#e53935"/><path d="M8.5 5.5 15.5 2 21 8.5 14 12z" fill="#b71c1c"/>' +
+  '<path d="M7 15.5h3v6H7z" fill="#1b5e20"/></svg>';
+const HOTEL_SVG = '<svg class="bld hotel" viewBox="0 0 24 24" aria-hidden="true">' +
+  '<path d="M14 6.5 21 3v15.5L14 22z" fill="#8e1414"/><path d="M3 6.5h11V22H3z" fill="#e53935"/>' +
+  '<path d="M3 6.5 10 3h11l-7 3.5z" fill="#ff8a80"/>' +
+  '<path d="M5 9h2.5v2.5H5zm4 0h2.5v2.5H9zm-4 4.5h2.5V16H5zm4 0h2.5V16H9z" fill="#fff6c7"/><path d="M7 18h3v4H7z" fill="#5d0b0b"/></svg>';
 
 /** Vị trí ô trên lưới 11×11: [hàng, cột, cạnh]. Ô 0 ở góc dưới phải, đi ngược chiều kim đồng hồ. */
 function cellPos(i) {
@@ -132,7 +161,7 @@ function buildBoard() {
         q.icon ? el('div', { class: 'icon', text: q.icon }) : null,
         el('div', { class: 'txt' }, el('div', { class: 'nm', text: q.short || q.name }), price ? el('div', { class: 'pr', text: price }) : null)));
     }
-    cell.append(el('div', { class: 'own' }), el('div', { class: 'tokens' }));
+    cell.append(el('div', { class: 'own' }));
     cell.addEventListener('click', () => UI.openSquare(i));
     cell.addEventListener('keydown', e => {
       if (e.key === 'Enter') { e.preventDefault(); UI.openSquare(i); }
@@ -140,6 +169,9 @@ function buildBoard() {
     board.append(cell);
     return cell;
   });
+  board.append($('#pieces')); // lớp quân cờ vẽ sau cùng, đè lên các ô
+  buildDie($('#die1'));
+  buildDie($('#die2'));
 }
 
 function renderBoard() {
@@ -153,30 +185,71 @@ function renderBoard() {
     cell.classList.toggle('mortgaged', pr.mortgaged);
     if (owner) cell.style.setProperty('--oc', owner.color);
     const bar = cell.querySelector('.bar');
-    if (bar) {
-      bar.replaceChildren(...(pr.houses === 5
-        ? [el('i', { class: 'hotel' })]
-        : Array.from({ length: pr.houses }, () => el('i', { class: 'house' }))));
+    if (bar && bar.dataset.h !== String(pr.houses)) {
+      const grew = pr.houses > Number(bar.dataset.h || 0);
+      bar.innerHTML = pr.houses === 5 ? HOTEL_SVG : HOUSE_SVG.repeat(pr.houses);
+      if (grew && bar.lastChild) bar.lastChild.classList.add('pop'); // nhà mới mọc lên
+      bar.dataset.h = String(pr.houses);
     }
   });
   const pot = $('.pot');
   if (pot) pot.textContent = s.settings.parkingPot ? `Quỹ: ${fmt(s.pot)}` : 'Nghỉ chân';
 }
 
+/** Quân cờ: mỗi người một quân đứng trên lớp #pieces, đặt ở giữa ô (nhiều quân cùng ô thì xếp lệch nhau). */
+function buildPieces() {
+  const box = $('#pieces');
+  box.replaceChildren();
+  UI.pieces = G.s.players.map(p => {
+    const piece = el('div', { class: 'piece', style: `--pc:${p.color}` },
+      el('div', { class: 'piece-shadow' }),
+      el('div', { class: 'pawn' }, el('div', { class: 'pawn-in' },
+        el('div', { class: 'pawn-body' }),
+        el('div', { class: 'pawn-head', text: p.token }))));
+    box.append(piece);
+    return piece;
+  });
+  // đặt quân vào chỗ ngay, không trượt từ góc bàn vào
+  box.classList.add('still');
+  renderTokens();
+  void box.offsetWidth;
+  box.classList.remove('still');
+}
+
 function renderTokens() {
-  if (!G.s) return;
-  UI.cells.forEach(c => c.querySelector('.tokens').replaceChildren());
+  if (!G.s || !UI.pieces.length) return;
+  const at = {};
   G.s.players.forEach(p => {
     if (p.bankrupt) return;
-    const active = p.id === G.s.current && G.s.phase !== 'over';
     const pos = UI.tokPos[p.id] ?? p.pos; // trong lúc phát hiệu ứng, quân đứng ở vị trí đang vẽ
-    UI.cells[pos].querySelector('.tokens').append(el('div', {
-      class: 'tok' + (p.inJail ? ' jailed' : '') + (active ? ' cur' : ''),
-      style: `--pc:${p.color}`,
-      title: pn(p),
-      text: p.token,
-    }));
+    (at[pos] = at[pos] || []).push(p.id);
   });
+  G.s.players.forEach(p => {
+    const piece = UI.pieces[p.id];
+    piece.hidden = p.bankrupt;
+    if (p.bankrupt) return;
+    const pos = UI.tokPos[p.id] ?? p.pos, cell = UI.cells[pos];
+    const mates = at[pos], k = mates.indexOf(p.id), n = mates.length;
+    // xếp tối đa 2 cột, các hàng lệch nhau theo chiều dọc ô
+    const cols = n > 1 ? 2 : 1, rows = Math.ceil(n / cols);
+    const step = Math.min(cell.offsetWidth, cell.offsetHeight) * .32;
+    const dx = cols > 1 ? ((k % 2) - .5) * step : 0;
+    const dy = (Math.floor(k / cols) - (rows - 1) / 2) * step * .75;
+    const x = cell.offsetLeft + cell.offsetWidth / 2 + dx, y = cell.offsetTop + cell.offsetHeight / 2 + dy + step * .25;
+    piece.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
+    piece.classList.toggle('cur', p.id === G.s.current && G.s.phase !== 'over');
+    piece.classList.toggle('jailed', p.inJail);
+    piece.title = pn(p);
+  });
+}
+
+/** Quân pid nhảy một nhịp (mỗi bước đi). */
+function hopPiece(pid) {
+  const piece = UI.pieces[pid];
+  if (!piece) return;
+  piece.classList.remove('hop');
+  void piece.offsetWidth; // chạy lại hiệu ứng
+  piece.classList.add('hop');
 }
 
 function renderCenter() {
@@ -203,6 +276,7 @@ function buildPlayers() {
     box.append(card);
     return card;
   });
+  buildPieces();
   setDie($('#die1'), G.s.dice[0]);
   setDie($('#die2'), G.s.dice[1]);
 }
@@ -534,6 +608,7 @@ function describeTrade(t, side) {
 const UI = {
   cells: [],
   pcards: [],
+  pieces: [],      // quân cờ 3D của từng người chơi
   modals: [],
   names: {},        // user id → tên hiển thị (chơi online)
   tokPos: {},       // vị trí quân đang vẽ trong lúc phát hiệu ứng di chuyển
@@ -554,9 +629,12 @@ const UI = {
     buildBoard();
     setDie($('#die1'), 5);
     setDie($('#die2'), 2);
-    const placePanel = () => (UI.mq.matches ? $('#panel-slot') : $('#panel-home')).append($('#panel'));
-    UI.mq.addEventListener('change', placePanel);
-    placePanel();
+    let flat = false;
+    try { flat = localStorage.getItem(VIEW_KEY) === 'flat'; } catch (e) { /* trình duyệt chặn lưu trữ */ }
+    UI.setView(flat);
+    $('#btn-view').addEventListener('click', () => UI.setView(!document.body.classList.contains('flat'), true));
+    // bàn cờ đổi kích thước (xoay máy, đổi cỡ cửa sổ) thì đặt lại vị trí quân
+    if (window.ResizeObserver) new ResizeObserver(() => renderTokens()).observe($('#board'));
     $('#btn-rules').addEventListener('click', () => UI.openRules());
     $('#btn-new').addEventListener('click', () => { if (!$('#btn-new').disabled) UI.showSetup(); });
     $('#btn-end').addEventListener('click', () => endGameEarly());
@@ -567,6 +645,15 @@ const UI = {
     document.addEventListener('keydown', onKey);
     renderPanel();
     UI.showSetup();
+  },
+
+  /** Góc nhìn bàn cờ: 3D (nghiêng) hoặc phẳng; ghi nhớ trên máy này. */
+  setView(flat, save = false) {
+    document.body.classList.toggle('flat', flat);
+    $('#btn-view').textContent = flat ? '🧊 Xem 3D' : '▦ Xem phẳng';
+    if (save) {
+      try { localStorage.setItem(VIEW_KEY, flat ? 'flat' : '3d'); } catch (e) { /* trình duyệt chặn lưu trữ */ }
+    }
   },
 
   render() {
@@ -678,14 +765,20 @@ const UI = {
           pos = (pos + dir + 40) % 40;
           UI.tokPos[e.pid] = pos;
           renderTokens();
+          hopPiece(e.pid);
           await sleep(G.stepMs);
         }
         return;
       }
-      case 'jump':
+      case 'jump': { // bay thẳng tới ô (vào tù)
+        const piece = UI.pieces[e.pid];
+        if (piece) piece.classList.add('jump');
         UI.tokPos[e.pid] = e.to;
         renderTokens();
+        await sleep(600);
+        if (piece) piece.classList.remove('jump');
         return;
+      }
       case 'hl':
         UI.highlight(e.i);
         return;
@@ -755,19 +848,21 @@ const UI = {
     renderPlayers();
   },
 
+  /** Tung hai khối xúc xắc: nảy lên, xoay vài vòng rồi rơi đúng mặt kết quả. */
   async animateDice([a, b]) {
     const dice = [$('#die1'), $('#die2')];
-    dice.forEach(d => d.classList.remove('dbl'));
-    dice.forEach(d => d.classList.add('rolling'));
-    for (let k = 0; k < 9; k++) {
-      dice.forEach(d => setDie(d, 1 + Math.floor(Math.random() * 6)));
-      await sleep(55);
-    }
-    dice.forEach(d => d.classList.remove('rolling'));
-    setDie(dice[0], a);
-    setDie(dice[1], b);
+    dice.forEach(d => {
+      d.classList.remove('dbl');
+      const wrap = d.parentNode;
+      wrap.classList.remove('rolling');
+      void wrap.offsetWidth; // chạy lại hiệu ứng
+      wrap.classList.add('rolling');
+    });
+    setDie(dice[0], a, true);
+    setDie(dice[1], b, true);
+    await sleep(1000);
     if (a === b) dice.forEach(d => d.classList.add('dbl'));
-    await sleep(350);
+    await sleep(150);
   },
 
   /* ----- Hộp thoại ----- */

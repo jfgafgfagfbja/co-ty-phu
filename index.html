@@ -6,8 +6,8 @@
   <title>Cờ Tỷ Phú</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=5">
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&family=Be+Vietnam+Pro:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css?v=6">
 </head>
 <body>
   <header class="topbar">
@@ -21,27 +21,26 @@
   </header>
 
   <main class="layout">
-    <section class="board" id="board" aria-label="Bàn cờ">
-      <div class="center">
-        <div class="center-inner">
+    <section class="stage" id="stage">
+      <div class="board" id="board" aria-label="Bàn cờ">
+        <div class="center">
           <div class="brand">
             <div class="logo">CỜ TỶ PHÚ</div>
             <div class="sub">Hành trình khắp Việt Nam</div>
           </div>
           <div class="dice" aria-label="Xúc xắc">
-            <div class="die" id="die1"></div>
-            <div class="die" id="die2"></div>
-          </div>
-          <div id="panel-home" class="panel-home">
-            <div id="panel" class="panel" aria-live="polite"></div>
+            <div class="die-wrap"><div class="die" id="die1"></div></div>
+            <div class="die-wrap"><div class="die" id="die2"></div></div>
           </div>
           <div class="center-info" id="center-info"></div>
         </div>
+        <div class="pieces" id="pieces"></div>
       </div>
+      <button type="button" class="view-toggle" id="btn-view" title="Đổi góc nhìn bàn cờ"></button>
     </section>
 
     <aside class="side">
-      <div id="panel-slot"></div>
+      <div id="panel" class="panel" aria-live="polite"></div>
       <div class="box">
         <h3>Người chơi</h3>
         <div id="players" class="players"></div>
@@ -56,10 +55,10 @@
   <div id="modals"></div>
   <div id="toasts" class="toasts" aria-live="polite"></div>
 
-  <script src="js/data.js?v=5"></script>
-  <script src="js/game.js?v=5"></script>
-  <script src="js/firebase-config.js?v=5"></script>
-  <script src="js/net.js?v=5"></script>
-  <script src="js/ui.js?v=5"></script>
+  <script src="js/data.js?v=6"></script>
+  <script src="js/game.js?v=6"></script>
+  <script src="js/firebase-config.js?v=6"></script>
+  <script src="js/net.js?v=6"></script>
+  <script src="js/ui.js?v=6"></script>
 </body>
 </html>

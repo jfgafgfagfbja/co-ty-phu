@@ -1,24 +1,32 @@
+/* Bàn cờ 3D đặt trên mặt bàn nỉ xanh: bàn nghiêng có viền gỗ, ô nổi từng tấm, quân cờ đứng,
+   xúc xắc khối lập phương. body.flat: xem phẳng từ trên xuống. */
 :root {
-  --bg: #f3ede2;
+  --felt-1: #23845a;
+  --felt-2: #0f5a39;
+  --felt-3: #083823;
   --ink: #1f2933;
   --muted: #6b7280;
   --line: #3a3a3a;
-  --board: #d6ead3;
-  --cell: #fbfaf4;
+  --cell: #fffaf0;
+  --cell-2: #f1e5c8;
+  --wood-1: #9a6635;
+  --wood-2: #6d4220;
+  --wood-3: #3e2410;
   --panel: #ffffff;
   --red: #c62828;
   --red-dark: #8f1b1b;
   --gold: #f5b700;
   --green: #2b8a3e;
-  --shadow: 0 6px 20px rgba(31, 41, 51, .14);
+  --shadow: 0 8px 24px rgba(0, 0, 0, .28);
   --side-w: 340px;
   --top-h: 52px;
+  --display: 'Baloo 2', 'Be Vietnam Pro', system-ui, sans-serif;
 }
 
 * { box-sizing: border-box; }
 html, body { margin: 0; }
 body {
-  background: var(--bg);
+  background: radial-gradient(ellipse 90% 70% at 40% 35%, var(--felt-1) 0%, var(--felt-2) 55%, var(--felt-3) 100%) fixed var(--felt-2);
   color: var(--ink);
   font-family: 'Be Vietnam Pro', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   min-height: 100vh;
@@ -27,17 +35,19 @@ button, input, select { font: inherit; color: inherit; }
 
 /* ---------- Thanh trên cùng ---------- */
 .topbar {
+  position: relative;
+  z-index: 5;
   height: var(--top-h);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   padding: 0 16px;
-  background: var(--red);
+  background: linear-gradient(180deg, #d63031, var(--red) 60%, #b71c1c);
   color: #fff;
-  box-shadow: 0 2px 0 var(--red-dark);
+  box-shadow: 0 3px 0 var(--red-dark), 0 8px 18px rgba(0, 0, 0, .3);
 }
-.topbar h1 { margin: 0; font-size: 19px; font-weight: 800; letter-spacing: .02em; white-space: nowrap; }
+.topbar h1 { margin: 0; font-family: var(--display); font-size: 23px; font-weight: 800; letter-spacing: .02em; white-space: nowrap; text-shadow: 0 2px 0 var(--red-dark); }
 .top-actions { display: flex; gap: 6px; overflow-x: auto; }
 
 /* ---------- Nút ---------- */
@@ -70,8 +80,8 @@ button, input, select { font: inherit; color: inherit; }
 /* ---------- Bố cục ---------- */
 .layout {
   display: flex;
-  gap: 16px;
-  padding: 14px 16px;
+  gap: 20px;
+  padding: 14px 16px 24px;
   justify-content: center;
   align-items: flex-start;
 }
@@ -85,57 +95,98 @@ button, input, select { font: inherit; color: inherit; }
   overflow-y: auto;
   padding-bottom: 4px;
 }
-.box { background: #fff; border-radius: 12px; box-shadow: var(--shadow); padding: 12px; }
+.box { background: #fff; border-radius: 14px; box-shadow: var(--shadow); padding: 12px; }
 .box h3 { margin: 0 0 8px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 
-/* ---------- Bàn cờ ---------- */
+/* ---------- Bàn cờ 3D ---------- */
+/* --u = 1% cạnh bàn cờ; mọi kích thước trên bàn tính theo --u để co giãn theo màn hình */
+.stage {
+  --tilt: 26deg;
+  --fold: .9;           /* chiều cao bàn nghiêng nhìn thấy so với cạnh bàn */
+  --size: clamp(300px, min((100vh - var(--top-h) - 76px) / var(--fold), 100vw - var(--side-w) - 72px), 940px);
+  --u: calc(var(--size) / 100);
+  --pw: calc(var(--u) * 4.6);  /* bề ngang quân cờ */
+  position: relative;
+  flex: 0 0 auto;
+  width: var(--size);
+  height: calc(var(--size) * var(--fold));
+  margin-bottom: 34px;  /* chỗ cho nút đổi góc nhìn dưới bàn cờ */
+  perspective: calc(var(--size) * 2.6);
+  perspective-origin: 50% 0%;
+  pointer-events: none;
+  transition: height .5s ease;
+}
+body.flat .stage { --tilt: 0deg; --fold: 1; }
+
 .board {
-  --size: clamp(300px, min(100vh - var(--top-h) - 28px, 100vw - var(--side-w) - 48px), 980px);
+  position: absolute;
+  left: 0;
+  bottom: 0;
   width: var(--size);
   height: var(--size);
-  flex: 0 0 auto;
   display: grid;
   grid-template-columns: 1.55fr repeat(9, 1fr) 1.55fr;
   grid-template-rows: 1.55fr repeat(9, 1fr) 1.55fr;
-  background: var(--board);
-  border: 2px solid var(--line);
-  border-radius: 6px;
-  box-shadow: var(--shadow);
-  container-type: size;
-  overflow: hidden;
+  gap: calc(var(--u) * .3);
+  padding: calc(var(--u) * 1.2);
+  border-radius: calc(var(--u) * 1.6);
+  background:
+    repeating-linear-gradient(95deg, rgba(255, 255, 255, .05) 0 calc(var(--u) * .5), transparent calc(var(--u) * .5) calc(var(--u) * 1.3)),
+    linear-gradient(135deg, var(--wood-1), var(--wood-2) 55%, #5a3519);
+  box-shadow: inset 0 0 0 calc(var(--u) * .25) rgba(255, 255, 255, .15), 0 calc(var(--u) * 4) calc(var(--u) * 6) rgba(0, 0, 0, .55);
+  transform-origin: 50% 100%;
+  transform: rotateX(var(--tilt));
+  transform-style: preserve-3d;
+  pointer-events: auto;
+  transition: transform .5s ease;
+}
+/* cạnh trước dày của bàn cờ */
+.board::after {
+  content: '';
+  position: absolute;
+  left: calc(var(--u) * .8);
+  right: calc(var(--u) * .8);
+  top: 100%;
+  height: calc(var(--u) * 2.4);
+  border-radius: 0 0 calc(var(--u) * 1.2) calc(var(--u) * 1.2);
+  background: linear-gradient(var(--wood-2), var(--wood-3));
+  transform-origin: 50% 0;
+  transform: rotateX(-90deg);
 }
 
 .cell {
   position: relative;
   display: flex;
   overflow: hidden;
-  background: var(--cell);
-  border: .5px solid var(--line);
-  font-size: 1.45cqw;
+  border-radius: calc(var(--u) * .5);
+  background: linear-gradient(160deg, var(--cell) 0%, var(--cell-2) 100%);
+  box-shadow: inset 0 0 0 1px rgba(90, 55, 20, .28), inset 0 calc(var(--u) * .2) 0 rgba(255, 255, 255, .8), 0 calc(var(--u) * .25) 0 rgba(60, 35, 10, .45);
+  font-size: calc(var(--u) * 1.45);
   line-height: 1.12;
   cursor: pointer;
   user-select: none;
+  transition: transform .18s ease, box-shadow .18s ease;
 }
-.cell.owned { background: color-mix(in srgb, var(--oc) 14%, var(--cell)); }
-.cell:hover { filter: brightness(.96); }
+.cell.owned { background: linear-gradient(160deg, color-mix(in srgb, var(--oc) 12%, var(--cell)), color-mix(in srgb, var(--oc) 22%, var(--cell-2))); }
+@media (hover: hover) {
+  .cell:hover { transform: translateZ(calc(var(--u) * 1.2)); box-shadow: inset 0 0 0 1px rgba(90, 55, 20, .28), 0 calc(var(--u) * 1.2) calc(var(--u) * 2) rgba(0, 0, 0, .35); }
+}
 .cell:focus-visible { outline: 3px solid #ffd43b; outline-offset: -3px; z-index: 3; }
 .cell.bottom { flex-direction: column; }
 .cell.top { flex-direction: column-reverse; }
 .cell.left { flex-direction: row-reverse; }
 .cell.right { flex-direction: row; }
 
+/* dải màu nhóm, bóng như men sứ; nhà và khách sạn đặt trên dải này */
 .bar {
-  flex: 0 0 21%;
+  flex: 0 0 22%;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: .3cqw;
-  border: 0 solid var(--line);
+  gap: calc(var(--u) * .15);
+  box-shadow: inset 0 calc(var(--u) * .3) 0 rgba(255, 255, 255, .35), inset 0 calc(var(--u) * -.3) 0 rgba(0, 0, 0, .18);
 }
-.cell.bottom .bar { border-bottom-width: .5px; }
-.cell.top .bar { border-top-width: .5px; }
-.cell.left .bar { border-left-width: .5px; flex-direction: column; }
-.cell.right .bar { border-right-width: .5px; flex-direction: column; }
+.cell.left .bar, .cell.right .bar { flex-direction: column; }
 
 .body {
   flex: 1;
@@ -145,22 +196,22 @@ button, input, select { font: inherit; color: inherit; }
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: .4cqw;
-  padding: .5cqw .35cqw;
+  gap: calc(var(--u) * .4);
+  padding: calc(var(--u) * .5) calc(var(--u) * .35);
   text-align: center;
 }
-.cell.left .body, .cell.right .body { flex-direction: row; gap: .6cqw; }
+.cell.left .body, .cell.right .body { flex-direction: row; gap: calc(var(--u) * .6); }
 .cell.left .txt, .cell.right .txt { text-align: left; }
-.icon { font-size: 2.5cqw; line-height: 1; }
-.nm { font-weight: 600; overflow-wrap: anywhere; }
-.pr { font-size: 1.2cqw; color: #4b5563; margin-top: .35cqw; }
+.icon { font-size: calc(var(--u) * 2.6); line-height: 1; filter: drop-shadow(0 calc(var(--u) * .2) calc(var(--u) * .15) rgba(0, 0, 0, .3)); }
+.nm { font-weight: 700; overflow-wrap: anywhere; }
+.pr { font-size: calc(var(--u) * 1.2); color: #6b4e2e; margin-top: calc(var(--u) * .35); font-weight: 600; }
 
-.own { position: absolute; display: none; background: var(--oc); }
+.own { position: absolute; display: none; background: var(--oc); box-shadow: 0 0 calc(var(--u) * .8) var(--oc); }
 .cell.owned .own { display: block; }
-.cell.bottom .own { left: 0; right: 0; bottom: 0; height: .6cqw; }
-.cell.top .own { left: 0; right: 0; top: 0; height: .6cqw; }
-.cell.left .own { top: 0; bottom: 0; left: 0; width: .6cqw; }
-.cell.right .own { top: 0; bottom: 0; right: 0; width: .6cqw; }
+.cell.bottom .own { left: 0; right: 0; bottom: 0; height: calc(var(--u) * .7); }
+.cell.top .own { left: 0; right: 0; top: 0; height: calc(var(--u) * .7); }
+.cell.left .own { top: 0; bottom: 0; left: 0; width: calc(var(--u) * .7); }
+.cell.right .own { top: 0; bottom: 0; right: 0; width: calc(var(--u) * .7); }
 
 .cell.mortgaged::after {
   content: 'THẾ CHẤP';
@@ -168,135 +219,219 @@ button, input, select { font: inherit; color: inherit; }
   inset: 0;
   display: grid;
   place-items: center;
-  background: repeating-linear-gradient(135deg, rgba(198, 40, 40, .12) 0 .6cqw, transparent .6cqw 1.2cqw);
+  background: repeating-linear-gradient(135deg, rgba(198, 40, 40, .14) 0 calc(var(--u) * .6), transparent calc(var(--u) * .6) calc(var(--u) * 1.2));
   color: var(--red);
   font-weight: 800;
-  font-size: 1.05cqw;
+  font-size: calc(var(--u) * 1.05);
   letter-spacing: .04em;
   pointer-events: none;
 }
 
-.house, .hotel { display: block; border: .15cqw solid #fff; box-shadow: 0 0 0 .5px rgba(0, 0, 0, .35); }
-.house { width: 1.35cqw; height: 1.35cqw; background: #2f9e44; border-radius: .2cqw; }
-.hotel { width: 3.2cqw; height: 1.6cqw; background: var(--red); border-radius: .25cqw; }
-.cell.left .hotel, .cell.right .hotel { width: 1.6cqw; height: 3.2cqw; }
+/* nhà / khách sạn vẽ dạng khối (SVG), có bóng đổ */
+.bld { display: block; width: calc(var(--u) * 2.2); height: calc(var(--u) * 2.2); filter: drop-shadow(0 calc(var(--u) * .15) calc(var(--u) * .1) rgba(0, 0, 0, .45)); }
+.bld.hotel { width: calc(var(--u) * 3); height: calc(var(--u) * 3); }
+.bld.pop { animation: pop-in .45s cubic-bezier(.3, 1.6, .5, 1); }
+@keyframes pop-in { from { transform: scale(0) translateY(40%); } }
 
 .cell.corner {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: .4cqw;
-  padding: .6cqw;
+  gap: calc(var(--u) * .4);
+  padding: calc(var(--u) * .6);
   text-align: center;
 }
-.corner .cicon { font-size: 3.6cqw; line-height: 1; }
-.corner .clabel { font-weight: 800; font-size: 1.6cqw; letter-spacing: .03em; }
-.corner .csub { font-size: 1.15cqw; color: #4b5563; }
-.corner .arrow { font-size: 3.2cqw; color: var(--red); font-weight: 800; line-height: 1; }
-.corner .pot { font-size: 1.3cqw; font-weight: 700; color: var(--green); }
-.t-go { background: #fff4f4; }
-.t-gotojail { background: #f1f3f5; }
+.corner .cicon { font-size: calc(var(--u) * 4); line-height: 1; filter: drop-shadow(0 calc(var(--u) * .3) calc(var(--u) * .2) rgba(0, 0, 0, .35)); }
+.corner .clabel { font-family: var(--display); font-weight: 800; font-size: calc(var(--u) * 1.9); letter-spacing: .03em; line-height: 1; }
+.corner .csub { font-size: calc(var(--u) * 1.15); color: #6b4e2e; }
+.corner .arrow { font-size: calc(var(--u) * 3.4); color: var(--red); font-weight: 800; line-height: 1; }
+.corner .pot { font-size: calc(var(--u) * 1.3); font-weight: 700; color: var(--green); }
+.t-go { background: linear-gradient(150deg, #fff3e6, #ffd6c2); }
+.t-go .clabel { color: var(--red); }
+.t-jail { background: linear-gradient(150deg, #fff8e1, #f3dfae); }
+.t-parking { background: linear-gradient(150deg, #eef7ff, #cfe3f6); }
+.t-gotojail { background: linear-gradient(150deg, #f3f0ff, #d8d0f2); }
+.t-chance .icon, .t-chest .icon { font-size: calc(var(--u) * 3); }
 
-.tokens {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-wrap: wrap;
-  align-content: center;
-  justify-content: center;
-  gap: .25cqw;
-  padding: .4cqw;
-  pointer-events: none;
-}
-.tok {
-  position: relative;
-  width: 3.2cqw;
-  height: 3.2cqw;
-  border-radius: 50%;
-  background: var(--pc);
-  border: .25cqw solid #fff;
-  box-shadow: 0 .2cqw .5cqw rgba(0, 0, 0, .35);
-  display: grid;
-  place-items: center;
-  font-size: 1.75cqw;
-  line-height: 1;
-  transition: transform .15s;
-}
-.tok.cur { transform: scale(1.18); z-index: 2; box-shadow: 0 0 0 .3cqw var(--gold), 0 .2cqw .6cqw rgba(0, 0, 0, .4); }
-.tok.jailed::after { content: '🔒'; position: absolute; right: -.7cqw; bottom: -.7cqw; font-size: 1.3cqw; }
-
+/* ô vừa dừng: nảy lên và sáng viền vàng */
 .cell.hl { animation: hl 1.3s ease; }
 @keyframes hl {
-  0%, 100% { box-shadow: inset 0 0 0 0 transparent; }
-  25%, 60% { box-shadow: inset 0 0 0 .55cqw var(--gold); }
-}
-
-@container (max-width: 560px) {
-  .pr { display: none; }
-  .cell { font-size: max(6.5px, 1.45cqw); }
-  .icon { font-size: 3cqw; }
-  .corner .csub { display: none; }
+  0%, 100% { transform: translateZ(0); }
+  20% { transform: translateZ(calc(var(--u) * 2)); box-shadow: inset 0 0 0 calc(var(--u) * .55) var(--gold), 0 calc(var(--u) * 1.5) calc(var(--u) * 2.5) rgba(0, 0, 0, .35); }
+  60% { transform: translateZ(calc(var(--u) * .6)); box-shadow: inset 0 0 0 calc(var(--u) * .55) var(--gold); }
 }
 
 /* ---------- Giữa bàn cờ ---------- */
 .center {
   grid-row: 2 / 11;
   grid-column: 2 / 11;
-  overflow-y: auto;
-  display: flex;
-  padding: 2cqw;
-}
-.center-inner {
-  margin: auto 0;
-  width: 100%;
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1.6cqw;
+  justify-content: center;
+  gap: calc(var(--u) * 3);
+  padding: calc(var(--u) * 2);
+  border-radius: calc(var(--u) * .8);
+  background:
+    radial-gradient(circle at 50% 42%, rgba(255, 255, 255, .9) 0%, transparent 55%),
+    repeating-conic-gradient(from 0deg at 50% 42%, rgba(198, 40, 40, .05) 0 7.5deg, transparent 7.5deg 15deg),
+    linear-gradient(160deg, #fff8e8, #f0dfb6);
+  box-shadow: inset 0 0 calc(var(--u) * 2.5) rgba(120, 80, 20, .3);
+  transform-style: preserve-3d;
 }
 .brand { text-align: center; }
 .logo {
   display: inline-block;
-  background: var(--red);
+  padding: calc(var(--u) * .4) calc(var(--u) * 2.8) calc(var(--u) * .2);
+  border-radius: calc(var(--u) * 1.2);
+  background: linear-gradient(180deg, #e53935, var(--red) 55%, #a31515);
   color: #fff;
+  font-family: var(--display);
   font-weight: 800;
-  letter-spacing: .06em;
-  font-size: 4.2cqw;
-  padding: .6cqw 2.4cqw;
-  border-radius: 1cqw;
-  box-shadow: 0 .5cqw 0 var(--red-dark);
+  font-size: calc(var(--u) * 5.6);
+  letter-spacing: .05em;
+  line-height: 1.15;
+  text-shadow: 0 calc(var(--u) * .25) 0 var(--red-dark), 0 calc(var(--u) * .5) calc(var(--u) * .6) rgba(0, 0, 0, .35);
+  box-shadow: inset 0 calc(var(--u) * .3) 0 rgba(255, 255, 255, .35), 0 calc(var(--u) * .7) 0 var(--red-dark), 0 calc(var(--u) * 1.4) calc(var(--u) * 1.6) rgba(0, 0, 0, .3);
   transform: rotate(-3deg);
 }
-.brand .sub { margin-top: 1.3cqw; font-size: 1.5cqw; font-weight: 600; color: #2f4f2f; }
-.dice { display: flex; gap: 1.6cqw; }
-.die {
-  width: 6.2cqw;
-  height: 6.2cqw;
-  min-width: 30px;
-  min-height: 30px;
-  background: #fff;
-  border-radius: 1.1cqw;
-  box-shadow: 0 .4cqw 0 #c8c8c8, 0 .7cqw 1.2cqw rgba(0, 0, 0, .18);
+.brand .sub { margin-top: calc(var(--u) * 1.6); font-size: calc(var(--u) * 1.7); font-weight: 700; color: #6b4e2e; letter-spacing: .02em; }
+.center-info { font-size: max(11px, calc(var(--u) * 1.3)); font-weight: 600; color: #6b4e2e; text-align: center; }
+
+/* ---------- Xúc xắc khối lập phương ---------- */
+.dice { display: flex; gap: calc(var(--u) * 5); transform-style: preserve-3d; }
+.die-wrap {
+  --d: max(28px, calc(var(--u) * 7.5));
+  position: relative;
+  width: var(--d);
+  height: var(--d);
+  transform-style: preserve-3d;
+  transform: translateZ(calc(var(--d) / 2));
+}
+.die-wrap::before { /* bóng của xúc xắc trên mặt bàn */
+  content: '';
+  position: absolute;
+  inset: 8%;
+  border-radius: 25%;
+  background: rgba(60, 35, 10, .45);
+  filter: blur(calc(var(--d) * .08));
+  transform: translateZ(calc(var(--d) / -2 + 1px));
+}
+.die-wrap.rolling { animation: die-hop .95s ease-out; }
+@keyframes die-hop {
+  0% { transform: translateZ(calc(var(--d) / 2)); }
+  25% { transform: translateZ(calc(var(--d) * 2.6)); }
+  55% { transform: translateZ(calc(var(--d) * .5)); }
+  72% { transform: translateZ(calc(var(--d) * 1.2)); }
+  88%, 100% { transform: translateZ(calc(var(--d) / 2)); }
+}
+.die { position: absolute; inset: 0; transform-style: preserve-3d; transition: transform .95s cubic-bezier(.15, .7, .25, 1); }
+.face {
+  position: absolute;
+  inset: 0;
   display: grid;
   grid-template: repeat(3, 1fr) / repeat(3, 1fr);
-  padding: .7cqw;
+  padding: 13%;
+  border-radius: 18%;
+  background: radial-gradient(circle at 30% 25%, #fff, #f3f1ec 55%, #dcd8cf);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .1), inset 0 calc(var(--d) * -.06) calc(var(--d) * .1) rgba(0, 0, 0, .12);
+  backface-visibility: hidden;
 }
-.die i { border-radius: 50%; margin: 14%; }
-.die i.on { background: var(--ink); }
-.die.dbl { box-shadow: 0 0 0 .35cqw var(--gold), 0 .7cqw 1.2cqw rgba(0, 0, 0, .18); }
-.die.rolling { animation: shake .16s linear infinite; }
-@keyframes shake {
-  0%, 100% { transform: rotate(-14deg) translateY(-4%); }
-  50% { transform: rotate(14deg) translateY(4%); }
+.face i { border-radius: 50%; margin: 13%; }
+.face i.on { background: radial-gradient(circle at 35% 30%, #4a4a4a, #0d0d0d); box-shadow: inset 0 1px 1px rgba(255, 255, 255, .25); }
+.face.f1 i.on { background: radial-gradient(circle at 35% 30%, #ff6b6b, #b71c1c); margin: 4%; } /* mặt 1 chấm đỏ to */
+.face.f1 { transform: translateZ(calc(var(--d) / 2)); }
+.face.f6 { transform: rotateY(180deg) translateZ(calc(var(--d) / 2)); }
+.face.f3 { transform: rotateY(90deg) translateZ(calc(var(--d) / 2)); }
+.face.f4 { transform: rotateY(-90deg) translateZ(calc(var(--d) / 2)); }
+.face.f2 { transform: rotateX(90deg) translateZ(calc(var(--d) / 2)); }
+.face.f5 { transform: rotateX(-90deg) translateZ(calc(var(--d) / 2)); }
+.die.dbl .face { box-shadow: inset 0 0 0 calc(var(--d) * .06) var(--gold); }
+
+/* ---------- Quân cờ đứng trên bàn ---------- */
+.pieces { position: absolute; inset: 0; pointer-events: none; transform-style: preserve-3d; }
+.piece { position: absolute; left: 0; top: 0; transform-style: preserve-3d; transition: transform .14s linear; }
+.piece.jump { transition: transform .6s cubic-bezier(.3, .1, .3, 1); }
+.pieces.still .piece { transition: none; }
+.piece-shadow {
+  position: absolute;
+  width: var(--pw);
+  height: calc(var(--pw) * .5);
+  left: calc(var(--pw) / -2);
+  top: calc(var(--pw) * -.25);
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(40, 20, 0, .5), transparent);
 }
-.panel-home { width: 100%; display: flex; justify-content: center; }
-.panel-home:empty { display: none; }
-.center-info { font-size: max(11px, 1.25cqw); color: #2f4f2f; text-align: center; }
+.piece.cur .piece-shadow { background: radial-gradient(closest-side, rgba(245, 183, 0, .9), rgba(245, 183, 0, .35) 65%, transparent); }
+/* thân quân luôn quay mặt về phía người nhìn (nghiêng ngược với bàn) */
+.pawn {
+  position: absolute;
+  width: var(--pw);
+  height: calc(var(--pw) * 1.45);
+  left: calc(var(--pw) / -2);
+  bottom: 0;
+  transform-origin: 50% 100%;
+  transform: rotateX(calc(var(--tilt) * -1));
+  transition: transform .5s ease;
+}
+.pawn-in { position: absolute; inset: 0; }
+.piece.cur .pawn-in { animation: bob 1.3s ease-in-out infinite; }
+.piece.hop .pawn-in { animation: hop .14s ease-out; }
+@keyframes bob { 50% { transform: translateY(-10%); } }
+@keyframes hop { 50% { transform: translateY(-38%); } }
+.pawn-body {
+  position: absolute;
+  left: 13%;
+  right: 13%;
+  bottom: 0;
+  height: 50%;
+  border-radius: 46% 46% 18% 18% / 62% 62% 18% 18%;
+  background:
+    radial-gradient(circle at 30% 22%, rgba(255, 255, 255, .7), transparent 34%),
+    linear-gradient(90deg, color-mix(in srgb, var(--pc) 60%, #000), var(--pc) 40%, color-mix(in srgb, var(--pc) 75%, #fff) 58%, color-mix(in srgb, var(--pc) 55%, #000));
+  box-shadow: 0 calc(var(--pw) * .03) calc(var(--pw) * .05) rgba(0, 0, 0, .45);
+}
+.pawn-head {
+  position: absolute;
+  top: 0;
+  left: 4%;
+  right: 4%;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: calc(var(--pw) * .07) solid var(--pc);
+  background: radial-gradient(circle at 32% 28%, #fff, #f4f4f4 55%, #cfcfcf);
+  font-size: calc(var(--pw) * .52);
+  line-height: 1;
+  box-shadow: 0 calc(var(--pw) * .05) calc(var(--pw) * .08) rgba(0, 0, 0, .4);
+}
+.piece.jailed .pawn-head::after { content: '🔒'; position: absolute; right: -22%; bottom: -12%; font-size: 55%; }
+
+/* ---------- Nút đổi góc nhìn ---------- */
+.view-toggle {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 2;
+  padding: 5px 11px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, .4);
+  background: rgba(0, 0, 0, .25);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  pointer-events: auto;
+  backdrop-filter: blur(4px);
+}
+.view-toggle:hover { background: rgba(0, 0, 0, .4); }
+.view-toggle:focus-visible { outline: 3px solid #ffd43b; outline-offset: 1px; }
 
 /* ---------- Bảng điều khiển ---------- */
 .panel {
   width: 100%;
-  max-width: 470px;
   background: var(--panel);
   border-radius: 14px;
   box-shadow: var(--shadow);
@@ -304,7 +439,6 @@ button, input, select { font: inherit; color: inherit; }
   font-size: 14px;
   line-height: 1.45;
 }
-#panel-slot .panel { max-width: none; }
 .turn {
   display: flex;
   align-items: center;
@@ -602,11 +736,19 @@ input:focus-visible, select:focus-visible { outline: 3px solid #ffd43b; outline-
 @keyframes toastIn { from { opacity: 0; transform: translateY(-8px); } }
 @keyframes toastOut { to { opacity: 0; transform: translateY(-8px); } }
 
-/* ---------- Màn hình hẹp hoặc thấp: bảng điều khiển chuyển sang cột bên ---------- */
+/* ---------- Màn hình hẹp: bảng điều khiển xuống dưới bàn cờ ---------- */
 @media (max-width: 980px) {
-  .layout { flex-direction: column; align-items: center; padding: 12px 16px; }
-  .board { --size: clamp(288px, min(100vw - 32px, 100vh - 230px), 760px); }
+  .layout { flex-direction: column; align-items: center; padding: 12px 16px 24px; }
+  .stage { --size: clamp(288px, min(100vw - 32px, (100vh - 180px) / var(--fold)), 760px); }
   .side { width: min(100%, 760px); flex-basis: auto; max-height: none; overflow: visible; }
+}
+/* bàn cờ nhỏ: bớt chữ phụ, nghiêng ít hơn cho dễ đọc, quân to hơn */
+@media (max-width: 640px) {
+  .stage { --tilt: 20deg; --fold: .94; --pw: calc(var(--u) * 5.6); }
+  .pr { display: none; }
+  .cell { font-size: max(6.5px, calc(var(--u) * 1.45)); }
+  .icon { font-size: calc(var(--u) * 3); }
+  .corner .csub { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition: none !important; }
