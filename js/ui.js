@@ -196,16 +196,35 @@ function renderBoard() {
   if (pot) pot.textContent = s.settings.parkingPot ? `Quỹ: ${fmt(s.pot)}` : 'Nghỉ chân';
 }
 
-/** Quân cờ: mỗi người một quân đứng trên lớp #pieces, đặt ở giữa ô (nhiều quân cùng ô thì xếp lệch nhau). */
+/** Mặt cắt quân tốt: [độ cao 0..1, bán kính 0..1] của từng lát tròn — đế, gờ, thân thon, cổ áo, cổ, đầu tròn (đỉnh phẳng để gắn huy hiệu). */
+const PAWN_SLICES = (() => {
+  const out = [], N = 44;
+  for (let k = 0; k <= N; k++) {
+    const z = k / N;
+    let r;
+    if (z <= .05) r = 1;
+    else if (z <= .08) r = .86;
+    else if (z <= .12) r = .7;
+    else if (z <= .62) r = .52 - (z - .12) / .5 * .22;
+    else if (z <= .66) r = .5;
+    else if (z <= .72) r = .27;
+    else if (z <= .95) r = Math.max(z < .76 ? .27 : 0, .58 * Math.sqrt(Math.max(0, 1 - ((z - .86) / .13) ** 2)));
+    else break;
+    out.push([z, r]);
+  }
+  return out;
+})();
+
+/** Quân cờ: mỗi người một quân tốt 3D trên lớp #pieces, đặt ở giữa ô (nhiều quân cùng ô thì xếp lệch nhau). */
 function buildPieces() {
   const box = $('#pieces');
   box.replaceChildren();
   UI.pieces = G.s.players.map(p => {
+    const slices = PAWN_SLICES.map(([z, r]) => el('i', { style: `--z:${z.toFixed(3)};--r:${r.toFixed(3)};--d:${(.3 - .27 * z).toFixed(3)}` }));
     const piece = el('div', { class: 'piece', style: `--pc:${p.color}` },
       el('div', { class: 'piece-shadow' }),
-      el('div', { class: 'pawn' }, el('div', { class: 'pawn-in' },
-        el('div', { class: 'pawn-body' }),
-        el('div', { class: 'pawn-head', text: p.token }))));
+      el('div', { class: 'piece-ring' }),
+      el('div', { class: 'pawn3d' }, slices, el('b', { class: 'emblem', text: p.token })));
     box.append(piece);
     return piece;
   });
@@ -232,10 +251,10 @@ function renderTokens() {
     const mates = at[pos], k = mates.indexOf(p.id), n = mates.length;
     // xếp tối đa 2 cột, các hàng lệch nhau theo chiều dọc ô
     const cols = n > 1 ? 2 : 1, rows = Math.ceil(n / cols);
-    const step = Math.min(cell.offsetWidth, cell.offsetHeight) * .32;
+    const step = Math.min(cell.offsetWidth, cell.offsetHeight) * .4;
     const dx = cols > 1 ? ((k % 2) - .5) * step : 0;
     const dy = (Math.floor(k / cols) - (rows - 1) / 2) * step * .75;
-    const x = cell.offsetLeft + cell.offsetWidth / 2 + dx, y = cell.offsetTop + cell.offsetHeight / 2 + dy + step * .25;
+    const x = cell.offsetLeft + cell.offsetWidth / 2 + dx, y = cell.offsetTop + cell.offsetHeight / 2 + dy + step * .15;
     piece.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
     piece.classList.toggle('cur', p.id === G.s.current && G.s.phase !== 'over');
     piece.classList.toggle('jailed', p.inJail);

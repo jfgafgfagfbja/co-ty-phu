@@ -101,11 +101,11 @@ button, input, select { font: inherit; color: inherit; }
 /* ---------- Bàn cờ 3D ---------- */
 /* --u = 1% cạnh bàn cờ; mọi kích thước trên bàn tính theo --u để co giãn theo màn hình */
 .stage {
-  --tilt: 26deg;
-  --fold: .9;           /* chiều cao bàn nghiêng nhìn thấy so với cạnh bàn */
+  --tilt: 30deg;
+  --fold: .88;           /* chiều cao bàn nghiêng nhìn thấy so với cạnh bàn */
   --size: clamp(300px, min((100vh - var(--top-h) - 76px) / var(--fold), 100vw - var(--side-w) - 72px), 940px);
   --u: calc(var(--size) / 100);
-  --pw: calc(var(--u) * 4.6);  /* bề ngang quân cờ */
+  --pr: calc(var(--u) * 1.9);  /* bán kính đế quân cờ */
   position: relative;
   flex: 0 0 auto;
   width: var(--size);
@@ -257,8 +257,8 @@ body.flat .stage { --tilt: 0deg; --fold: 1; }
 .cell.hl { animation: hl 1.3s ease; }
 @keyframes hl {
   0%, 100% { transform: translateZ(0); }
-  20% { transform: translateZ(calc(var(--u) * 2)); box-shadow: inset 0 0 0 calc(var(--u) * .55) var(--gold), 0 calc(var(--u) * 1.5) calc(var(--u) * 2.5) rgba(0, 0, 0, .35); }
-  60% { transform: translateZ(calc(var(--u) * .6)); box-shadow: inset 0 0 0 calc(var(--u) * .55) var(--gold); }
+  20% { transform: translateZ(calc(var(--u) * .8)); box-shadow: inset 0 0 0 calc(var(--u) * .55) var(--gold), 0 calc(var(--u) * 1.5) calc(var(--u) * 2.5) rgba(0, 0, 0, .35); }
+  60% { transform: translateZ(calc(var(--u) * .3)); box-shadow: inset 0 0 0 calc(var(--u) * .55) var(--gold); }
 }
 
 /* ---------- Giữa bàn cờ ---------- */
@@ -349,65 +349,76 @@ body.flat .stage { --tilt: 0deg; --fold: 1; }
 .face.f5 { transform: rotateX(-90deg) translateZ(calc(var(--d) / 2)); }
 .die.dbl .face { box-shadow: inset 0 0 0 calc(var(--d) * .06) var(--gold); }
 
-/* ---------- Quân cờ đứng trên bàn ---------- */
+/* ---------- Quân cờ 3D ---------- */
+/* Quân tốt dựng từ nhiều lát tròn xếp chồng theo trục Z (--z: độ cao 0..1, --r: bán kính 0..1, --d: độ tối),
+   nên là một khối thật, nhìn từ góc nào cũng đúng. --pr: bán kính đế; chiều cao --ph = 4,2 lần. */
 .pieces { position: absolute; inset: 0; pointer-events: none; transform-style: preserve-3d; }
-.piece { position: absolute; left: 0; top: 0; transform-style: preserve-3d; transition: transform .14s linear; }
+.piece { --ph: calc(var(--pr) * 4.2); position: absolute; left: 0; top: 0; transform-style: preserve-3d; transition: transform .14s linear; }
 .piece.jump { transition: transform .6s cubic-bezier(.3, .1, .3, 1); }
 .pieces.still .piece { transition: none; }
+/* bóng đổ mềm lệch xuống dưới phải: đèn chiếu từ phía trên bên trái */
 .piece-shadow {
   position: absolute;
-  width: var(--pw);
-  height: calc(var(--pw) * .5);
-  left: calc(var(--pw) / -2);
-  top: calc(var(--pw) * -.25);
+  width: calc(var(--pr) * 3.4);
+  height: calc(var(--pr) * 2.8);
+  left: calc(var(--pr) * -1.2);
+  top: calc(var(--pr) * -1.05);
   border-radius: 50%;
-  background: radial-gradient(closest-side, rgba(40, 20, 0, .5), transparent);
+  background: radial-gradient(closest-side, rgba(30, 15, 0, .6), rgba(30, 15, 0, .28) 55%, transparent);
+  transform: translateZ(.3px);
 }
-.piece.cur .piece-shadow { background: radial-gradient(closest-side, rgba(245, 183, 0, .9), rgba(245, 183, 0, .35) 65%, transparent); }
-/* thân quân luôn quay mặt về phía người nhìn (nghiêng ngược với bàn) */
-.pawn {
+/* vòng sáng vàng dưới đế quân đang tới lượt */
+.piece-ring {
   position: absolute;
-  width: var(--pw);
-  height: calc(var(--pw) * 1.45);
-  left: calc(var(--pw) / -2);
-  bottom: 0;
-  transform-origin: 50% 100%;
-  transform: rotateX(calc(var(--tilt) * -1));
-  transition: transform .5s ease;
+  display: none;
+  width: calc(var(--pr) * 2.9);
+  height: calc(var(--pr) * 2.9);
+  left: calc(var(--pr) * -1.45);
+  top: calc(var(--pr) * -1.45);
+  border-radius: 50%;
+  border: calc(var(--pr) * .16) solid var(--gold);
+  box-shadow: 0 0 calc(var(--pr) * .7) var(--gold), inset 0 0 calc(var(--pr) * .4) rgba(245, 183, 0, .8);
+  transform: translateZ(.4px);
+  animation: ring 1.4s ease-in-out infinite;
 }
-.pawn-in { position: absolute; inset: 0; }
-.piece.cur .pawn-in { animation: bob 1.3s ease-in-out infinite; }
-.piece.hop .pawn-in { animation: hop .14s ease-out; }
-@keyframes bob { 50% { transform: translateY(-10%); } }
-@keyframes hop { 50% { transform: translateY(-38%); } }
-.pawn-body {
+.piece.cur .piece-ring { display: block; }
+@keyframes ring { 50% { opacity: .5; transform: translateZ(.4px) scale(1.12); } }
+.pawn3d { position: absolute; left: 0; top: 0; transform-style: preserve-3d; }
+.pawn3d i {
   position: absolute;
-  left: 13%;
-  right: 13%;
-  bottom: 0;
-  height: 50%;
-  border-radius: 46% 46% 18% 18% / 62% 62% 18% 18%;
+  width: calc(var(--r) * var(--pr) * 2);
+  height: calc(var(--r) * var(--pr) * 2);
+  left: calc(var(--r) * var(--pr) * -1);
+  top: calc(var(--r) * var(--pr) * -1);
+  border-radius: 50%;
   background:
-    radial-gradient(circle at 30% 22%, rgba(255, 255, 255, .7), transparent 34%),
-    linear-gradient(90deg, color-mix(in srgb, var(--pc) 60%, #000), var(--pc) 40%, color-mix(in srgb, var(--pc) 75%, #fff) 58%, color-mix(in srgb, var(--pc) 55%, #000));
-  box-shadow: 0 calc(var(--pw) * .03) calc(var(--pw) * .05) rgba(0, 0, 0, .45);
+    linear-gradient(rgba(0, 0, 0, var(--d)), rgba(0, 0, 0, var(--d))),
+    radial-gradient(circle at 36% 30%, color-mix(in srgb, var(--pc) 30%, #fff) 0%, var(--pc) 40%, color-mix(in srgb, var(--pc) 55%, #000) 100%);
+  box-shadow: inset 0 0 calc(var(--r) * var(--pr) * .35) rgba(0, 0, 0, .35);
+  transform: translateZ(calc(var(--z) * var(--ph) + .6px));
 }
-.pawn-head {
+/* huy hiệu tròn in biểu tượng người chơi trên đỉnh đầu quân */
+.pawn3d .emblem {
   position: absolute;
-  top: 0;
-  left: 4%;
-  right: 4%;
-  aspect-ratio: 1;
+  width: calc(var(--pr) * .9);
+  height: calc(var(--pr) * .9);
+  left: calc(var(--pr) * -.45);
+  top: calc(var(--pr) * -.45);
   display: grid;
   place-items: center;
   border-radius: 50%;
-  border: calc(var(--pw) * .07) solid var(--pc);
-  background: radial-gradient(circle at 32% 28%, #fff, #f4f4f4 55%, #cfcfcf);
-  font-size: calc(var(--pw) * .52);
+  background: radial-gradient(circle at 35% 30%, #fff, #f2f2f2 60%, #d4d4d4);
+  box-shadow: 0 0 0 calc(var(--pr) * .07) color-mix(in srgb, var(--pc) 70%, #000);
+  font-size: calc(var(--pr) * .6);
+  font-style: normal;
   line-height: 1;
-  box-shadow: 0 calc(var(--pw) * .05) calc(var(--pw) * .08) rgba(0, 0, 0, .4);
+  transform: translateZ(calc(var(--ph) * .95 + 1px));
 }
-.piece.jailed .pawn-head::after { content: '🔒'; position: absolute; right: -22%; bottom: -12%; font-size: 55%; }
+.piece.jailed .emblem::after { content: '🔒'; position: absolute; right: -50%; bottom: -30%; font-size: 75%; }
+.piece.cur .pawn3d { animation: bob3d 1.4s ease-in-out infinite; }
+.piece.hop .pawn3d { animation: hop3d .14s ease-out; }
+@keyframes bob3d { 50% { transform: translateZ(calc(var(--pr) * .45)); } }
+@keyframes hop3d { 50% { transform: translateZ(calc(var(--pr) * 1.7)); } }
 
 /* ---------- Nút đổi góc nhìn ---------- */
 .view-toggle {
@@ -744,7 +755,7 @@ input:focus-visible, select:focus-visible { outline: 3px solid #ffd43b; outline-
 }
 /* bàn cờ nhỏ: bớt chữ phụ, nghiêng ít hơn cho dễ đọc, quân to hơn */
 @media (max-width: 640px) {
-  .stage { --tilt: 20deg; --fold: .94; --pw: calc(var(--u) * 5.6); }
+  .stage { --tilt: 24deg; --fold: .92; --pr: calc(var(--u) * 2.5); }
   .pr { display: none; }
   .cell { font-size: max(6.5px, calc(var(--u) * 1.45)); }
   .icon { font-size: calc(var(--u) * 3); }
