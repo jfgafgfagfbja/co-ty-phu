@@ -226,6 +226,15 @@ function buildPieces() {
       el('div', { class: 'piece-ring' }),
       el('div', { class: 'pawn3d' }, slices, el('b', { class: 'emblem', text: p.token })));
     box.append(piece);
+    // có mô hình 3D của biểu tượng thì thay quân tốt bằng mô hình đó
+    Models.get(p.token, p.color).then(m => {
+      if (!m || UI.pieces[p.id] !== piece) return;
+      piece.model = m;
+      piece.img = el('img', { alt: '', draggable: 'false' });
+      piece.append(el('div', { class: 'model', style: `--ax:${m.ax.toFixed(4)};--ay:${m.ay.toFixed(4)}` }, el('div', { class: 'model-in' }, piece.img)));
+      piece.classList.add('has-model');
+      renderTokens();
+    });
     return piece;
   });
   // đặt quân vào chỗ ngay, không trượt từ góc bàn vào
@@ -258,6 +267,10 @@ function renderTokens() {
     piece.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
     piece.classList.toggle('cur', p.id === G.s.current && G.s.phase !== 'over');
     piece.classList.toggle('jailed', p.inJail);
+    if (piece.model) { // mô hình quay theo hướng đi: hàng dưới sang trái, cột trái đi lên, hàng trên sang phải, cột phải đi xuống
+      const src = piece.model.src[Math.floor(pos / 10)];
+      if (piece.img.getAttribute('src') !== src) piece.img.src = src;
+    }
     piece.title = pn(p);
   });
 }
@@ -645,6 +658,7 @@ const UI = {
   mq: matchMedia('(max-width: 980px), (max-height: 720px)'),
 
   init() {
+    Models.load(); // tải three.js sẵn để dựng mô hình quân cờ
     buildBoard();
     setDie($('#die1'), 5);
     setDie($('#die2'), 2);

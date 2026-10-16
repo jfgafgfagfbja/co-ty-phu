@@ -415,6 +415,27 @@ body.flat .stage { --tilt: 0deg; --fold: 1; }
   transform: translateZ(calc(var(--ph) * .95 + 1px));
 }
 .piece.jailed .emblem::after { content: '🔒'; position: absolute; right: -50%; bottom: -30%; font-size: 75%; }
+/* mô hình 3D của biểu tượng (ảnh chụp từ three.js): đứng thẳng quay về người nhìn, neo ở chỗ chạm bàn */
+.piece { --ms: calc(var(--pr) * 7); }
+.model {
+  position: absolute;
+  width: var(--ms);
+  height: var(--ms);
+  left: calc(var(--ms) * var(--ax) * -1);
+  top: calc(var(--ms) * var(--ay) * -1);
+  transform-origin: calc(var(--ms) * var(--ax)) calc(var(--ms) * var(--ay));
+  transform: rotateX(calc(var(--tilt) * -1));
+  transition: transform .5s ease;
+}
+.model-in { width: 100%; height: 100%; }
+.model img { display: block; width: 100%; height: 100%; user-select: none; -webkit-user-drag: none; }
+.piece.has-model .pawn3d { display: none; }
+.piece.has-model .piece-shadow { width: calc(var(--pr) * 4.4); height: calc(var(--pr) * 3); left: calc(var(--pr) * -1.9); top: calc(var(--pr) * -1.2); }
+.piece.has-model.cur .model-in { animation: bob2d 1.4s ease-in-out infinite; }
+.piece.has-model.hop .model-in { animation: hop2d .14s ease-out; }
+@keyframes bob2d { 50% { transform: translateY(-5%); } }
+@keyframes hop2d { 50% { transform: translateY(-20%); } }
+.piece.jailed .model::after { content: '🔒'; position: absolute; right: 22%; top: 22%; font-size: calc(var(--ms) * .16); }
 .piece.cur .pawn3d { animation: bob3d 1.4s ease-in-out infinite; }
 .piece.hop .pawn3d { animation: hop3d .14s ease-out; }
 @keyframes bob3d { 50% { transform: translateZ(calc(var(--pr) * .45)); } }

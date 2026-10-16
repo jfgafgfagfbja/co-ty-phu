@@ -97,6 +97,7 @@ các máy khác nhận qua `onSnapshot` rồi phát lại xúc xắc, đường 
 | `js/game.js` | Luật chơi dạng máy trạng thái lưu được bằng JSON (đổ xúc xắc, di chuyển, thuê, thẻ, tù, đấu giá, phá sản, giao dịch, lưu ván) |
 | `js/firebase-config.js` | Cấu hình Firebase cho chế độ online ngoài claude.ai (null = chỉ chơi một máy) |
 | `js/net.js` | Chơi online: tạo / vào phòng, phòng chờ, đồng bộ trạng thái qua db của claude.ai hoặc Firestore |
+| `js/models.js` | Mô hình 3D của quân cờ (🛵 🚗 🚢 ✈️ 🐉 🐱 🎩 🚀) dựng bằng three.js, chụp thành ảnh theo 4 hướng đi |
 | `js/ui.js` | Vẽ bàn cờ, người chơi, nhật ký, câu hỏi, phát lại hiệu ứng, các hộp thoại |
 | `tools/build.js` | Gộp thành một trang HTML duy nhất để đăng lên claude.ai |
 | `tools/mock-claude.js` | db và user giả để thử chế độ online trên máy |
