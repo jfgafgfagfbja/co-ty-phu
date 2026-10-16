@@ -165,11 +165,11 @@ body.flat .stage { --tilt: 0deg; --fold: 1; }
   line-height: 1.12;
   cursor: pointer;
   user-select: none;
-  transition: transform .18s ease, box-shadow .18s ease;
+  transition: scale .18s ease, box-shadow .18s ease, filter .18s ease;
 }
 .cell.owned { background: linear-gradient(160deg, color-mix(in srgb, var(--oc) 12%, var(--cell)), color-mix(in srgb, var(--oc) 22%, var(--cell-2))); }
 @media (hover: hover) {
-  .cell:hover { transform: translateZ(calc(var(--u) * 1.2)); box-shadow: inset 0 0 0 1px rgba(90, 55, 20, .28), 0 calc(var(--u) * 1.2) calc(var(--u) * 2) rgba(0, 0, 0, .35); }
+  .cell:hover { filter: brightness(1.06); box-shadow: inset 0 0 0 calc(var(--u) * .3) rgba(245, 183, 0, .75), 0 calc(var(--u) * .25) 0 rgba(60, 35, 10, .45); }
 }
 .cell:focus-visible { outline: 3px solid #ffd43b; outline-offset: -3px; z-index: 3; }
 .cell.bottom { flex-direction: column; }
@@ -253,12 +253,11 @@ body.flat .stage { --tilt: 0deg; --fold: 1; }
 .t-gotojail { background: linear-gradient(150deg, #f3f0ff, #d8d0f2); }
 .t-chance .icon, .t-chest .icon { font-size: calc(var(--u) * 3); }
 
-/* ô vừa dừng: nảy lên và sáng viền vàng */
+/* ô vừa dừng: phóng nhẹ trên mặt bàn và sáng viền vàng (không nổi theo chiều sâu để khỏi cắt quân) */
 .cell.hl { animation: hl 1.3s ease; }
 @keyframes hl {
-  0%, 100% { transform: translateZ(0); }
-  20% { transform: translateZ(calc(var(--u) * .8)); box-shadow: inset 0 0 0 calc(var(--u) * .55) var(--gold), 0 calc(var(--u) * 1.5) calc(var(--u) * 2.5) rgba(0, 0, 0, .35); }
-  60% { transform: translateZ(calc(var(--u) * .3)); box-shadow: inset 0 0 0 calc(var(--u) * .55) var(--gold); }
+  20% { scale: 1.06; box-shadow: inset 0 0 0 calc(var(--u) * .55) var(--gold), 0 0 calc(var(--u) * 1.6) var(--gold); }
+  60% { scale: 1.02; box-shadow: inset 0 0 0 calc(var(--u) * .55) var(--gold); }
 }
 
 /* ---------- Giữa bàn cờ ---------- */

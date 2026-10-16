@@ -272,7 +272,7 @@ function renderTokens() {
     const dx = cols > 1 ? ((k % 2) - .5) * step : 0;
     const dy = (Math.floor(k / cols) - (rows - 1) / 2) * step * .75;
     const x = cell.offsetLeft + cell.offsetWidth / 2 + dx, y = cell.offsetTop + cell.offsetHeight / 2 + dy + step * .15;
-    piece.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
+    piece.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 3px)`; // cao hơn mặt ô một chút
     piece.classList.toggle('cur', p.id === G.s.current && G.s.phase !== 'over');
     piece.classList.toggle('jailed', p.inJail);
     if (piece.model) { // mô hình quay theo hướng đi: hàng dưới sang trái, cột trái đi lên, hàng trên sang phải, cột phải đi xuống
