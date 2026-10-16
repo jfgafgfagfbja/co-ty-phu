@@ -61,30 +61,68 @@ async function firebaseBackend(config) {
   } catch (e) {
     auth = authSdk.getAuth(app);
   }
-  const saved = await new Promise(resolve => {
-    const off = authSdk.onAuthStateChanged(auth, u => {
-      resolve(u);
+  await new Promise(resolve => {
+    const off = authSdk.onAuthStateChanged(auth, () => {
+      resolve();
       setTimeout(() => off());
     });
   });
-  const me = saved || (await authSdk.signInAnonymously(auth)).user;
+  // Đăng nhập ẩn danh chỉ để Rules cho ghi. Trình duyệt trong Instagram / Facebook hay làm mất phiên này,
+  // nên khi bị từ chối thì đăng nhập lại (có thể ra tài khoản mới) và gửi lại một lần.
+  const signIn = async () => {
+    if (auth.currentUser) await auth.currentUser.getIdToken(true);
+    else await authSdk.signInAnonymously(auth);
+  };
+  if (!auth.currentUser) await authSdk.signInAnonymously(auth);
   const store = fs.getFirestore(app);
   const CODES = { 'permission-denied': 'permission_denied', 'resource-exhausted': 'resource_exhausted' };
   const err = e => ({ code: CODES[e && e.code] || 'unavailable', message: (e && e.message) || '' });
   const fail = e => { throw err(e); };
+  const write = async run => {
+    try {
+      return await run();
+    } catch (e) {
+      if (!e || e.code !== 'permission-denied') fail(e);
+      try {
+        await signIn();
+        return await run();
+      } catch (again) {
+        if (again && again.code === 'permission-denied') {
+          await authSdk.signOut(auth).catch(() => {});
+          await authSdk.signInAnonymously(auth);
+          return run().catch(fail);
+        }
+        return fail(again);
+      }
+    }
+  };
   const snap = s => ({ id: s.id, exists: s.exists(), data: () => s.data(), metadata: s.metadata });
   const db = {
     doc(path) {
       const ref = fs.doc(store, path);
       return {
         get: () => fs.getDoc(ref).then(snap, fail),
-        set: data => fs.setDoc(ref, data).catch(fail),
-        update: data => fs.setDoc(ref, data, { merge: true }).catch(fail), // gộp sâu như update của db claude.ai
+        set: data => write(() => fs.setDoc(ref, data)),
+        update: data => write(() => fs.setDoc(ref, data, { merge: true })), // gộp sâu như update của db claude.ai
         onSnapshot: (next, onError) => fs.onSnapshot(ref, s => next(snap(s)), e => onError && onError(err(e))),
       };
     },
   };
-  return { kind: 'firebase', db, user: null, uid: me.uid, canWrite: true };
+  return { kind: 'firebase', db, user: null, uid: playerId(auth.currentUser.uid), canWrite: true };
+}
+
+/** Mã người chơi trên máy này (ghế, chủ phòng), tách khỏi phiên Firebase nên không đổi khi phiên bị mất.
+ *  Lần đầu lấy theo mã Firebase hiện có (first), để các phòng tạo từ trước vẫn nhận ra mình. Link có ?rieng thì mỗi tab một mã. */
+function playerId(first) {
+  const KEY = 'coTyPhu.player';
+  try {
+    const store = new URLSearchParams(location.search).has('rieng') ? sessionStorage : localStorage;
+    let id = store.getItem(KEY);
+    if (!id) store.setItem(KEY, id = first);
+    return id;
+  } catch (e) {
+    return first; // trình duyệt chặn lưu trữ
+  }
 }
 
 /** Ghi chú về tài khoản trong các câu hướng dẫn, tuỳ nơi trang đang chạy. */
@@ -164,7 +202,7 @@ const Net = {
       case 'quota_exceeded':
         return 'Bộ nhớ dữ liệu của trang đã đầy, không tạo thêm phòng được.';
       case 'permission_denied':
-        return 'Máy chủ Firebase từ chối ghi. Chủ trang cần kiểm tra Rules của Firestore và bật đăng nhập Anonymous.';
+        return 'Máy chủ từ chối ghi dù đã thử đăng nhập lại. Hãy tải lại trang; nếu đang mở trong Instagram / Facebook / Zalo, hãy mở link bằng Safari hoặc Chrome.';
       default:
         return fallback + ' Kiểm tra kết nối mạng rồi thử lại.';
     }
@@ -526,6 +564,14 @@ const Room = {
     if (!host) wrap.append(el('p', { class: 'muted small', text: 'Chỉ chủ phòng đổi được tùy chọn.' }));
 
     const enough = seats.length >= 2;
+    if (!host && seated) {
+      wrap.append(el('p', { class: 'muted small' }, 'Chủ phòng mất kết nối, không bấm bắt đầu được? ',
+        btn('👑 Làm chủ phòng', async () => {
+          if (await UI.confirm('Nhận làm chủ phòng để chọn luật và bắt đầu ván? Chỉ dùng khi chủ phòng hiện tại không bấm được.', { ok: 'Làm chủ phòng' })) {
+            Net.patch({ host: Net.uid });
+          }
+        }, { small: true })));
+    }
     if (!host) wrap.append(el('p', { class: 'panel-msg muted wait', text: 'Đang chờ chủ phòng bắt đầu…' }));
     else if (!enough) wrap.append(el('p', { class: 'panel-msg muted', text: 'Cần ít nhất 2 người trong phòng để bắt đầu.' }));
     wrap.append(el('div', { class: 'btns end' },
