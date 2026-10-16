@@ -169,7 +169,6 @@ function buildBoard() {
     board.append(cell);
     return cell;
   });
-  board.append($('#pieces')); // lớp quân cờ vẽ sau cùng, đè lên các ô
   buildDie($('#die1'));
   buildDie($('#die2'));
 }

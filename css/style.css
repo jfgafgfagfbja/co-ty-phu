@@ -107,6 +107,7 @@ button, input, select { font: inherit; color: inherit; }
   --u: calc(var(--size) / 100);
   --pr: calc(var(--u) * 1.9);  /* bán kính đế quân cờ */
   position: relative;
+  z-index: 6;           /* trên thanh tiêu đề: quân đứng / bay ở hàng trên cùng không bị thanh tiêu đề che */
   flex: 0 0 auto;
   width: var(--size);
   height: calc(var(--size) * var(--fold));
@@ -351,6 +352,21 @@ body.flat .stage { --tilt: 0deg; --fold: 1; }
 /* ---------- Quân cờ 3D ---------- */
 /* Quân tốt dựng từ nhiều lát tròn xếp chồng theo trục Z (--z: độ cao 0..1, --r: bán kính 0..1, --d: độ tối),
    nên là một khối thật, nhìn từ góc nào cũng đúng. --pr: bán kính đế; chiều cao --ph = 4,2 lần. */
+/* Lớp quân cờ là một bàn trong suốt chồng khít lên bàn cờ (cùng cỡ, cùng độ nghiêng) và vẽ sau cả bàn: nếu để quân
+   chung không gian 3D với các ô, trình duyệt có lúc vẽ chữ và nền ô đè lên đáy mô hình. Các quân vẫn sắp trước sau
+   với nhau trong không gian 3D của lớp này. */
+.board-top {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: var(--size);
+  height: var(--size);
+  transform-origin: 50% 100%;
+  transform: rotateX(var(--tilt));
+  transform-style: preserve-3d;
+  pointer-events: none;
+  transition: transform .5s ease;
+}
 .pieces { position: absolute; inset: 0; pointer-events: none; transform-style: preserve-3d; }
 .piece { --ph: calc(var(--pr) * 4.2); position: absolute; left: 0; top: 0; transform-style: preserve-3d; transition: transform .14s linear; }
 .piece.jump { transition: transform .6s cubic-bezier(.3, .1, .3, 1); }
@@ -853,8 +869,9 @@ input:focus-visible, select:focus-visible { outline: 3px solid #ffd43b; outline-
   .stage { --size: clamp(288px, min(100vw - 32px, (100vh - 180px) / var(--fold)), 760px); }
   .side { width: min(100%, 760px); flex-basis: auto; max-height: none; overflow: visible; }
 }
-/* bàn cờ nhỏ: bớt chữ phụ, nghiêng ít hơn cho dễ đọc, quân to hơn */
+/* bàn cờ nhỏ: bớt chữ phụ, nghiêng ít hơn cho dễ đọc, quân to hơn (chừa thêm chỗ phía trên cho quân ở hàng trên cùng) */
 @media (max-width: 640px) {
+  .layout { padding-top: 20px; }
   .stage { --tilt: 24deg; --fold: .92; --pr: calc(var(--u) * 2.5); }
   .pr { display: none; }
   .cell { font-size: max(6.5px, calc(var(--u) * 1.45)); }
