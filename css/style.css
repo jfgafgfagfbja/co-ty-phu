@@ -427,15 +427,95 @@ body.flat .stage { --tilt: 0deg; --fold: 1; }
   transform: rotateX(calc(var(--tilt) * -1));
   transition: transform .5s ease;
 }
-.model-in { width: 100%; height: 100%; }
+.model-in, .model-hop { position: absolute; inset: 0; transform-origin: calc(var(--ax) * 100%) calc(var(--ay) * 100%); }
 .model img { display: block; width: 100%; height: 100%; user-select: none; -webkit-user-drag: none; }
 .piece.has-model .pawn3d { display: none; }
-.piece.has-model .piece-shadow { width: calc(var(--pr) * 4.4); height: calc(var(--pr) * 3); left: calc(var(--pr) * -1.9); top: calc(var(--pr) * -1.2); }
-.piece.has-model.cur .model-in { animation: bob2d 1.4s ease-in-out infinite; }
-.piece.has-model.hop .model-in { animation: hop2d .14s ease-out; }
-@keyframes bob2d { 50% { transform: translateY(-5%); } }
-@keyframes hop2d { 50% { transform: translateY(-20%); } }
+.piece.has-model .piece-shadow {
+  width: calc(var(--pr) * 4.4);
+  height: calc(var(--pr) * 3);
+  left: calc(var(--pr) * -1.9);
+  top: calc(var(--pr) * -1.2);
+  transition: scale .4s ease, opacity .4s ease;
+}
 .piece.jailed .model::after { content: '🔒'; position: absolute; right: 22%; top: 22%; font-size: calc(var(--ms) * .16); }
+
+/* ---------- Hoạt ảnh di chuyển riêng từng loại quân ----------
+   .model-in: độ cao bay (transform, có chuyển tiếp) và nhịp liên tục (thuộc tính translate / rotate / scale riêng
+   nên không đè lên độ cao); .model-hop: cú nhảy khi sang ô. Lớp trên .piece: .moving đang đi, .hop vừa sang ô,
+   .leap nhảy vọt vào tù. */
+.model-in { transition: transform .4s ease; }
+@keyframes bob2d { 50% { translate: 0 -5%; } }
+.piece.has-model.cur:not(.moving):is(.k-car, .k-scooter, .k-cat, .k-hat, .k-rocket) .model-in { animation: bob2d 1.4s ease-in-out infinite; }
+
+/* mèo vồ từng ô; mũ chóp nảy kiểu hoạt hình (nén khi chạm đất, giãn khi bật lên) */
+.piece.k-cat.hop .model-hop { animation: pounce .14s ease-out; }
+.piece.k-hat.hop .model-hop { animation: boing .14s ease-out; }
+@keyframes pounce { 45% { translate: 0 -24%; rotate: -8deg; } }
+@keyframes boing { 0% { scale: 1.12 .84; } 45% { translate: 0 -22%; scale: .9 1.12; } 85% { scale: 1.06 .92; } }
+.piece.leap .model-hop { animation: leap .6s ease-in-out; }
+@keyframes leap { 50% { translate: 0 -70%; rotate: 8deg; } }
+
+/* ô tô lăn bánh rung nhẹ theo mặt đường; xe máy chao nghiêng */
+.piece.k-car.moving .model-in { animation: rumble .18s linear infinite; }
+.piece.k-scooter.moving .model-in { animation: lean .52s ease-in-out infinite; }
+@keyframes rumble { 50% { translate: 0 -2.5%; rotate: .8deg; } }
+@keyframes lean { 0%, 100% { rotate: -4deg; } 50% { rotate: 4deg; translate: 0 -1.5%; } }
+
+/* tàu luôn bồng bềnh; chạy thì lắc mạnh hơn và có vòng sóng loang */
+.piece.k-ship .model-in { animation: float 2.6s ease-in-out infinite; }
+.piece.k-ship.moving .model-in { animation: sail .8s ease-in-out infinite; }
+@keyframes float { 0%, 100% { rotate: -1.5deg; } 50% { translate: 0 -3%; rotate: 1.5deg; } }
+@keyframes sail { 0%, 100% { translate: 0 -2%; rotate: -6deg; } 50% { translate: 0 -5%; rotate: 6deg; } }
+.piece.has-model.k-ship::after {
+  content: '';
+  position: absolute;
+  width: calc(var(--pr) * 4.6);
+  height: calc(var(--pr) * 2.6);
+  left: calc(var(--pr) * -2.3);
+  top: calc(var(--pr) * -1.3);
+  border-radius: 50%;
+  border: calc(var(--pr) * .16) solid rgba(130, 195, 255, .6);
+  transform: translateZ(.35px);
+  animation: ripple 2.6s ease-out infinite;
+}
+.piece.has-model.k-ship.moving::after { animation-duration: .8s; }
+@keyframes ripple { from { scale: .6; opacity: .9; } to { scale: 1.35; opacity: 0; } }
+
+/* máy bay lơ lửng; đi thì cất cánh lên cao, nghiêng cánh, hạ cánh ở ô đích */
+.piece.k-plane .model-in { transform: translateY(-16%); animation: hover 2.4s ease-in-out infinite; }
+.piece.k-plane.moving .model-in { transform: translateY(-46%); animation: bank 1.1s ease-in-out infinite; }
+@keyframes hover { 50% { translate: 0 -4%; } }
+@keyframes bank { 0%, 100% { rotate: -7deg; } 50% { rotate: 7deg; translate: 0 -3%; } }
+
+/* rồng lơ lửng uốn lượn; đi thì bay cao và uốn mạnh */
+.piece.k-dragon .model-in { transform: translateY(-12%); animation: undulate 2.2s ease-in-out infinite; }
+.piece.k-dragon.moving .model-in { transform: translateY(-32%); animation: slither .55s ease-in-out infinite; }
+@keyframes undulate { 0%, 100% { rotate: -3deg; } 50% { translate: 0 -5%; rotate: 3deg; } }
+@keyframes slither { 0%, 100% { translate: 0 2%; rotate: -8deg; scale: 1.04 .97; } 50% { translate: 0 -6%; rotate: 8deg; scale: .97 1.04; } }
+
+/* tên lửa phóng lên có lửa đuôi, bay sang ô đích rồi đáp */
+.piece.k-rocket.moving .model-in { transform: translateY(-55%); animation: shake .09s linear infinite; }
+@keyframes shake { 50% { translate: 1% 0; } }
+.flame {
+  position: absolute;
+  left: calc(var(--ax) * 100%);
+  top: calc(var(--ay) * 100% - 7%);
+  width: 11%;
+  height: 26%;
+  translate: -50% 0;
+  transform-origin: 50% 0;
+  border-radius: 50% 50% 50% 50% / 35% 35% 65% 65%;
+  background: radial-gradient(ellipse at 50% 15%, #fffbe0 0%, #ffd54f 30%, #ff7043 60%, rgba(255, 87, 34, 0) 75%);
+  opacity: 0;
+  scale: 1 .4;
+  transition: opacity .25s, scale .25s;
+}
+.piece.k-rocket.moving .flame { opacity: 1; scale: 1 1; animation: flicker .08s linear infinite alternate; }
+@keyframes flicker { to { scale: .85 1.2; } }
+
+/* bóng nhỏ và mờ đi khi quân bay cao */
+.piece.has-model:is(.k-plane, .k-dragon) .piece-shadow { scale: .85; opacity: .75; }
+.piece.has-model:is(.k-plane, .k-dragon, .k-rocket).moving .piece-shadow { scale: .6; opacity: .45; }
 .piece.cur .pawn3d { animation: bob3d 1.4s ease-in-out infinite; }
 .piece.hop .pawn3d { animation: hop3d .14s ease-out; }
 @keyframes bob3d { 50% { transform: translateZ(calc(var(--pr) * .45)); } }

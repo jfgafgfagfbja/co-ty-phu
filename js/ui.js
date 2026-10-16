@@ -215,23 +215,31 @@ const PAWN_SLICES = (() => {
   return out;
 })();
 
+/** Loại quân theo biểu tượng; mỗi loại có cách di chuyển riêng (xem phần "Hoạt ảnh di chuyển" trong CSS). */
+const TOKEN_KIND = { '🛵': 'scooter', '🚗': 'car', '🚢': 'ship', '✈️': 'plane', '🐉': 'dragon', '🐱': 'cat', '🎩': 'hat', '🚀': 'rocket' };
+const LIFTOFF_MS = { plane: 380, rocket: 450, dragon: 260 }; // loại bay: thời gian cất cánh trước khi đi
+const HOPPERS = new Set(['cat', 'hat']);                       // loại nhảy từng ô
+
 /** Quân cờ: mỗi người một quân tốt 3D trên lớp #pieces, đặt ở giữa ô (nhiều quân cùng ô thì xếp lệch nhau). */
 function buildPieces() {
   const box = $('#pieces');
   box.replaceChildren();
   UI.pieces = G.s.players.map(p => {
     const slices = PAWN_SLICES.map(([z, r]) => el('i', { style: `--z:${z.toFixed(3)};--r:${r.toFixed(3)};--d:${(.3 - .27 * z).toFixed(3)}` }));
-    const piece = el('div', { class: 'piece', style: `--pc:${p.color}` },
+    const kind = TOKEN_KIND[p.token] || 'car';
+    const piece = el('div', { class: `piece k-${kind}`, style: `--pc:${p.color}` },
       el('div', { class: 'piece-shadow' }),
       el('div', { class: 'piece-ring' }),
       el('div', { class: 'pawn3d' }, slices, el('b', { class: 'emblem', text: p.token })));
+    piece.kind = kind;
     box.append(piece);
     // có mô hình 3D của biểu tượng thì thay quân tốt bằng mô hình đó
     Models.get(p.token, p.color).then(m => {
       if (!m || UI.pieces[p.id] !== piece) return;
       piece.model = m;
       piece.img = el('img', { alt: '', draggable: 'false' });
-      piece.append(el('div', { class: 'model', style: `--ax:${m.ax.toFixed(4)};--ay:${m.ay.toFixed(4)}` }, el('div', { class: 'model-in' }, piece.img)));
+      piece.append(el('div', { class: 'model', style: `--ax:${m.ax.toFixed(4)};--ay:${m.ay.toFixed(4)}` },
+        el('div', { class: 'model-in' }, el('div', { class: 'model-hop' }, piece.img, kind === 'rocket' ? el('i', { class: 'flame' }) : null))));
       piece.classList.add('has-model');
       renderTokens();
     });
@@ -275,10 +283,10 @@ function renderTokens() {
   });
 }
 
-/** Quân pid nhảy một nhịp (mỗi bước đi). */
+/** Quân pid nhảy một nhịp khi sang ô mới (chỉ loại nhảy: mèo, mũ, và quân tốt khi chưa có mô hình). */
 function hopPiece(pid) {
   const piece = UI.pieces[pid];
-  if (!piece) return;
+  if (!piece || (piece.model && !HOPPERS.has(piece.kind))) return;
   piece.classList.remove('hop');
   void piece.offsetWidth; // chạy lại hiệu ứng
   piece.classList.add('hop');
@@ -776,10 +784,17 @@ const UI = {
     if (!UI.playing) UI.playLoop();
   },
 
+  /** Hiệu ứng di chuyển kế tiếp (bỏ qua tiền / thông báo) có phải quân pid đi tiếp không. */
+  movesNext(pid) {
+    const next = UI.fxQueue.find(x => x.t !== 'money' && x.t !== 'toast');
+    return !!next && next.t === 'move' && next.pid === pid;
+  },
+
   async playLoop() {
     UI.playing = true;
     UI.render();
     while (UI.fxQueue.length) await UI.playFx(UI.fxQueue.shift());
+    UI.pieces.forEach(p => p.classList.remove('moving', 'leap'));
     UI.tokPos = {};
     UI.playing = false;
     UI.render();
@@ -792,6 +807,11 @@ const UI = {
         await UI.animateDice(e.d);
         return;
       case 'move': {
+        const piece = UI.pieces[e.pid];
+        const fly = piece && piece.model ? LIFTOFF_MS[piece.kind] || 0 : 0;
+        const airborne = piece && piece.classList.contains('moving');
+        if (piece) piece.classList.add('moving');
+        if (fly && !airborne) await sleep(fly); // cất cánh
         const dir = Math.sign(e.steps);
         let pos = e.from;
         for (let k = 0; k < Math.abs(e.steps); k++) {
@@ -801,15 +821,23 @@ const UI = {
           hopPiece(e.pid);
           await sleep(G.stepMs);
         }
+        // còn đi tiếp ngay (vd. vừa qua ô Xuất phát) thì không hạ cánh / dừng giữa chừng
+        if (piece && !UI.movesNext(e.pid)) {
+          piece.classList.remove('moving');
+          if (fly) await sleep(fly * .8); // hạ cánh
+        }
         return;
       }
-      case 'jump': { // bay thẳng tới ô (vào tù)
+      case 'jump': { // vào tù: loại bay thì bay thẳng tới, loại khác nhảy vọt
         const piece = UI.pieces[e.pid];
-        if (piece) piece.classList.add('jump');
+        const fly = piece && piece.model ? LIFTOFF_MS[piece.kind] || 0 : 0;
+        if (piece) piece.classList.add('jump', fly ? 'moving' : 'leap');
+        if (fly) await sleep(fly);
         UI.tokPos[e.pid] = e.to;
         renderTokens();
         await sleep(600);
-        if (piece) piece.classList.remove('jump');
+        if (piece) piece.classList.remove('jump', 'moving', 'leap');
+        if (fly) await sleep(fly * .8);
         return;
       }
       case 'hl':
