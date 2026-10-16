@@ -73,9 +73,16 @@ các máy khác nhận qua `onSnapshot` rồi phát lại xúc xắc, đường 
 
 - Bàn cờ 40 ô với địa danh Việt Nam, 8 nhóm màu, 4 sân bay, 2 công ty.
 - 16 thẻ Cơ hội và 16 thẻ Khí vận.
-- Luật gốc: ra đôi được đổ tiếp, 3 lần đôi vào tù, nhà tù (đổ đôi / nộp $50 / thẻ ra tù),
-  xây nhà đều theo nhóm màu, khách sạn, giới hạn 32 nhà / 12 khách sạn, thế chấp và chuộc lại (+10%),
+- Luật: ra đôi được đổ tiếp, 3 lần đôi vào tù, nhà tù (đổ đôi / nộp $50 / thẻ ra tù),
+  khách sạn, giới hạn 32 nhà / 12 khách sạn, thế chấp và chuộc lại (+10%),
   đấu giá khi không mua, phá sản và chuyển tài sản cho chủ nợ.
+- Luật riêng của bản này:
+  - Sở hữu ô nào là xây nhà được ô đó, không cần đủ nhóm màu (đủ nhóm thì đất trống thu gấp đôi).
+  - Giá xây mỗi nhà bằng giá đất; mỗi nhà làm tiền thuê tăng 35% giá xây, nên tiền thuê luôn thấp hơn
+    tiền bán lại số nhà đó (chỉnh ở `HOUSE_PRICE_RATE`, `RENT_PER_HOUSE_RATE` trong `js/data.js`).
+  - Dừng ở đất người khác: trả thuê xong, nếu đủ tiền được mua lại ô đó (cả nhà) với giá gấp 1,5 lần
+    giá đất + nhà, tiền trả cho chủ đất. Ô có khách sạn hoặc đang thế chấp thì không mua lại được
+    (`BUYOUT_RATE` trong `js/game.js`).
 - Giao dịch giữa người chơi (đất, tiền, thẻ ra tù).
 - Tùy chọn: tiền khởi đầu, bật/tắt đấu giá, quỹ Bãi đỗ xe, xáo trộn thứ tự đi.
 - Phím Space bấm nút chính; bấm vào một ô để xem giấy chủ quyền.

@@ -357,6 +357,20 @@ function promptFor(pd) {
         ],
       };
     }
+    case 'buyout': {
+      const q = BOARD[pd.sq], pr = s.props[pd.sq], owner = s.players[pr.owner], price = buyoutPrice(pd.sq);
+      const built = q.type === 'property' && pr.houses ? ` cùng ${pr.houses} nhà` : '';
+      return {
+        id: pd.id, player: p, can, title: `Mua lại: ${q.name}`, deed: pd.sq,
+        text: `Ô này của <b>${N(owner)}</b>${built}. ${can ? 'Bạn' : N(p)} có thể mua lại với giá <b>${fmt(price)}</b> ` +
+          `(gấp ${String(BUYOUT_RATE).replace('.', ',')} lần giá đất và nhà), tiền trả cho ${N(owner)}. ${can ? 'Bạn' : N(p)} đang có <b>${fmt(p.money)}</b>.`,
+        wait: `Đang chờ ${who} quyết định có mua lại không…`,
+        buttons: [
+          { label: `Mua lại ${fmt(price)}`, value: 'buy', primary: true, disabled: p.money < price },
+          { label: 'Không mua', value: 'skip' },
+        ],
+      };
+    }
     default: { // funds: thiếu tiền
       const max = liquidValue(p);
       return {
@@ -476,7 +490,7 @@ function deedView(i) {
 
 function manageButtons(i, small) {
   const q = BOARD[i], pr = G.s.props[i], out = [];
-  if (q.type === 'property' && hasMonopoly(pr.owner, q.group) && pr.houses < 5) {
+  if (q.type === 'property' && pr.houses < 5) {
     const why = buildCheck(i);
     out.push(btn(`${pr.houses === 4 ? '🏨 Xây khách sạn' : '🏠 Xây nhà'} −${fmt(houseCost(i))}`, () => doBuild(i),
       { small, primary: !why, disabled: !!why, title: why }));
@@ -927,7 +941,7 @@ const UI = {
             m.refresh();
           }, { small: true, primary: q.id === t.b }))),
         el('div', { class: 'tcols' }, sideView(t.a, 'a'), sideView(t.b, 'b')),
-        el('p', { class: 'muted small', text: 'Không giao dịch được đất thuộc nhóm màu đang có nhà. Nhận đất đang thế chấp phải trả ngay 10% lãi.' }),
+        el('p', { class: 'muted small', text: 'Không giao dịch được ô đất đang có nhà. Nhận đất đang thế chấp phải trả ngay 10% lãi.' }),
         error ? el('div', { class: 'err', text: sub(error) }) : null,
         el('div', { class: 'btns end' },
           btn('Hủy', () => m.close()),
@@ -979,10 +993,12 @@ const UI = {
         'Ra đôi được đổ thêm một lần. Ra đôi 3 lần liên tiếp phải vào tù.',
         'Dừng ở đất chưa có chủ: mua theo giá niêm yết, hoặc để ngân hàng đem ra đấu giá (nếu bật luật đấu giá).',
         'Dừng ở đất của người khác: trả tiền thuê, trừ khi ô đó đang thế chấp.',
+        `Trả thuê xong, nếu đủ tiền bạn được mua lại ô đó với giá gấp ${String(BUYOUT_RATE).replace('.', ',')} lần giá đất và nhà (tiền trả cho chủ đất). Ô đã có khách sạn hoặc đang thế chấp thì không mua lại được.`,
       ]),
       sec('Đất, nhà và khách sạn', [
-        'Sở hữu cả nhóm màu thì tiền thuê đất trống tăng gấp đôi và được phép xây nhà.',
-        'Phải xây đều: ô nhiều nhà nhất trong nhóm chỉ hơn ô ít nhất 1 nhà. Đủ 4 nhà thì nâng lên khách sạn.',
+        'Sở hữu ô nào là xây nhà được ô đó trong lượt của mình, không cần đủ nhóm màu. Đủ 4 nhà thì nâng lên khách sạn.',
+        'Giá xây mỗi nhà bằng giá đất. Mỗi nhà làm tiền thuê tăng thêm 35% giá xây.',
+        'Sở hữu cả nhóm màu thì tiền thuê đất trống (chưa có nhà) tăng gấp đôi.',
         'Ngân hàng chỉ có 32 nhà và 12 khách sạn.',
         'Sân bay: thuê $25 / $50 / $100 / $200 tùy chủ có 1–4 sân bay. Công ty: 4 lần số chấm (có 1 công ty) hoặc 10 lần (có cả 2).',
       ]),
@@ -992,7 +1008,7 @@ const UI = {
         'Người ở tù vẫn thu tiền thuê bình thường.',
       ]),
       sec('Thế chấp, thiếu tiền và phá sản', [
-        'Thế chấp đất để nhận 50% giá mua. Chuộc lại phải trả thêm 10%. Phải bán hết nhà trong nhóm trước khi thế chấp.',
+        'Thế chấp đất để nhận 50% giá mua. Chuộc lại phải trả thêm 10%. Phải bán hết nhà trên ô đó trước khi thế chấp.',
         'Bán nhà cho ngân hàng được nửa giá xây.',
         'Nếu không đủ tiền trả, bạn phải bán nhà / thế chấp. Không gom đủ thì phá sản: tài sản thuộc về chủ nợ (hoặc trả lại ngân hàng).',
       ]),
@@ -1007,7 +1023,7 @@ const UI = {
       ]) : null,
       sec('Mẹo', [
         'Nhóm Cam và Đỏ là các ô hay bị dừng nhất (vì ngay sau nhà tù).',
-        'Xây đến 3 nhà là lúc tiền thuê tăng mạnh nhất.',
+        'Xây khách sạn để giữ ô đất: ô có khách sạn không ai mua lại được.',
         'Phím Space bấm nút chính trong bảng điều khiển. Ván chơi được tự động lưu trên trình duyệt.',
       ])), { wide: true });
   },

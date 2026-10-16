@@ -3,22 +3,32 @@
 /* Dữ liệu cố định: bàn cờ 40 ô, nhóm màu, bộ thẻ Cơ hội / Khí vận. */
 
 const GROUPS = {
-  brown:     { name: 'Nâu',       color: '#8d5a3b', text: '#fff',    house: 50 },
-  lightblue: { name: 'Xanh nhạt', color: '#8fd3f4', text: '#1f2933', house: 50 },
-  pink:      { name: 'Hồng',      color: '#d6489a', text: '#fff',    house: 100 },
-  orange:    { name: 'Cam',       color: '#f08a24', text: '#fff',    house: 100 },
-  red:       { name: 'Đỏ',        color: '#e03131', text: '#fff',    house: 150 },
-  yellow:    { name: 'Vàng',      color: '#f5c518', text: '#1f2933', house: 150 },
-  green:     { name: 'Xanh lá',   color: '#2f9e44', text: '#fff',    house: 200 },
-  darkblue:  { name: 'Xanh đậm',  color: '#1c4fb0', text: '#fff',    house: 200 },
+  brown:     { name: 'Nâu',       color: '#8d5a3b', text: '#fff' },
+  lightblue: { name: 'Xanh nhạt', color: '#8fd3f4', text: '#1f2933' },
+  pink:      { name: 'Hồng',      color: '#d6489a', text: '#fff' },
+  orange:    { name: 'Cam',       color: '#f08a24', text: '#fff' },
+  red:       { name: 'Đỏ',        color: '#e03131', text: '#fff' },
+  yellow:    { name: 'Vàng',      color: '#f5c518', text: '#1f2933' },
+  green:     { name: 'Xanh lá',   color: '#2f9e44', text: '#fff' },
+  darkblue:  { name: 'Xanh đậm',  color: '#1c4fb0', text: '#fff' },
 };
 const GROUP_ORDER = Object.keys(GROUPS);
 
 const AIRPORT_RENT = [25, 50, 100, 200];
 const UTILITY_MULT = [4, 10];
 
-// rent: [đất trống, 1 nhà, 2 nhà, 3 nhà, 4 nhà, khách sạn]
-const prop = (name, group, price, rent) => ({ type: 'property', name, group, price, rent });
+// Giá xây mỗi nhà (kể cả nâng lên khách sạn) bằng giá đất. Mỗi nhà làm tiền thuê tăng thêm 35% giá xây,
+// nên tiền thuê luôn thấp hơn số tiền bán lại số nhà đó cho ngân hàng (nửa giá xây).
+const HOUSE_PRICE_RATE = 1;
+const RENT_PER_HOUSE_RATE = 0.35;
+const round10 = n => Math.round(n / 10) * 10;
+
+// base: tiền thuê đất trống. rent: [đất trống, 1 nhà, 2 nhà, 3 nhà, 4 nhà, khách sạn]
+const prop = (name, group, price, base) => {
+  const house = round10(price * HOUSE_PRICE_RATE);
+  const step = round10(house * RENT_PER_HOUSE_RATE);
+  return { type: 'property', name, group, price, house, rent: [0, 1, 2, 3, 4, 5].map(n => base + n * step) };
+};
 const airport = (name, short) => ({ type: 'airport', name, short, price: 200, icon: '✈️' });
 const utility = (name, short, icon) => ({ type: 'utility', name, short, price: 150, icon });
 const CHANCE_SQ = { type: 'chance', name: 'Cơ hội', icon: '❓' };
@@ -26,45 +36,45 @@ const CHEST_SQ = { type: 'chest', name: 'Khí vận', icon: '🧧' };
 
 const BOARD = [
   { type: 'go', name: 'Xuất phát', icon: '🏁' },
-  prop('Hà Giang', 'brown', 60, [2, 10, 30, 90, 160, 250]),
+  prop('Hà Giang', 'brown', 60, 2),
   CHEST_SQ,
-  prop('Cao Bằng', 'brown', 60, [4, 20, 60, 180, 320, 450]),
+  prop('Cao Bằng', 'brown', 60, 4),
   { type: 'tax', name: 'Thuế thu nhập', amount: 200, icon: '💸' },
   airport('Sân bay Nội Bài', 'Nội Bài'),
-  prop('Lào Cai', 'lightblue', 100, [6, 30, 90, 270, 400, 550]),
+  prop('Lào Cai', 'lightblue', 100, 6),
   CHANCE_SQ,
-  prop('Sơn La', 'lightblue', 100, [6, 30, 90, 270, 400, 550]),
-  prop('Điện Biên', 'lightblue', 120, [8, 40, 100, 300, 450, 600]),
+  prop('Sơn La', 'lightblue', 100, 6),
+  prop('Điện Biên', 'lightblue', 120, 8),
   { type: 'jail', name: 'Nhà tù', icon: '🔒' },
-  prop('Ninh Bình', 'pink', 140, [10, 50, 150, 450, 625, 750]),
+  prop('Ninh Bình', 'pink', 140, 10),
   utility('Công ty Điện lực', 'Điện lực', '💡'),
-  prop('Thanh Hóa', 'pink', 140, [10, 50, 150, 450, 625, 750]),
-  prop('Nghệ An', 'pink', 160, [12, 60, 180, 500, 700, 900]),
+  prop('Thanh Hóa', 'pink', 140, 10),
+  prop('Nghệ An', 'pink', 160, 12),
   airport('Sân bay Phú Bài', 'Phú Bài'),
-  prop('Quảng Bình', 'orange', 180, [14, 70, 200, 550, 750, 950]),
+  prop('Quảng Bình', 'orange', 180, 14),
   CHEST_SQ,
-  prop('Huế', 'orange', 180, [14, 70, 200, 550, 750, 950]),
-  prop('Hội An', 'orange', 200, [16, 80, 220, 600, 800, 1000]),
+  prop('Huế', 'orange', 180, 14),
+  prop('Hội An', 'orange', 200, 16),
   { type: 'parking', name: 'Bãi đỗ xe', icon: '🅿️' },
-  prop('Quy Nhơn', 'red', 220, [18, 90, 250, 700, 875, 1050]),
+  prop('Quy Nhơn', 'red', 220, 18),
   CHANCE_SQ,
-  prop('Nha Trang', 'red', 220, [18, 90, 250, 700, 875, 1050]),
-  prop('Đà Lạt', 'red', 240, [20, 100, 300, 750, 925, 1100]),
+  prop('Nha Trang', 'red', 220, 18),
+  prop('Đà Lạt', 'red', 240, 20),
   airport('Sân bay Cam Ranh', 'Cam Ranh'),
-  prop('Vũng Tàu', 'yellow', 260, [22, 110, 330, 800, 975, 1150]),
-  prop('Cần Thơ', 'yellow', 260, [22, 110, 330, 800, 975, 1150]),
+  prop('Vũng Tàu', 'yellow', 260, 22),
+  prop('Cần Thơ', 'yellow', 260, 22),
   utility('Công ty Cấp nước', 'Cấp nước', '🚰'),
-  prop('Phú Quốc', 'yellow', 280, [24, 120, 360, 850, 1025, 1200]),
+  prop('Phú Quốc', 'yellow', 280, 24),
   { type: 'gotojail', name: 'Vào tù', icon: '👮' },
-  prop('Hải Phòng', 'green', 300, [26, 130, 390, 900, 1100, 1275]),
-  prop('Hạ Long', 'green', 300, [26, 130, 390, 900, 1100, 1275]),
+  prop('Hải Phòng', 'green', 300, 26),
+  prop('Hạ Long', 'green', 300, 26),
   CHEST_SQ,
-  prop('Đà Nẵng', 'green', 320, [28, 150, 450, 1000, 1200, 1400]),
+  prop('Đà Nẵng', 'green', 320, 28),
   airport('Sân bay Tân Sơn Nhất', 'Tân Sơn Nhất'),
   CHANCE_SQ,
-  prop('Hà Nội', 'darkblue', 350, [35, 175, 500, 1100, 1300, 1500]),
+  prop('Hà Nội', 'darkblue', 350, 35),
   { type: 'tax', name: 'Thuế xa xỉ', amount: 100, icon: '💍' },
-  prop('TP. Hồ Chí Minh', 'darkblue', 400, [50, 200, 600, 1400, 1700, 2000]),
+  prop('TP. Hồ Chí Minh', 'darkblue', 400, 50),
 ];
 
 const GROUP_SQUARES = Object.fromEntries(

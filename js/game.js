@@ -18,6 +18,7 @@ const JAIL_POS = 10;
 const JAIL_FINE = 50;
 const DECK_NAME = { chance: 'Cơ hội', chest: 'Khí vận' };
 const FX_KEEP = 80;
+const BUYOUT_RATE = 1.5; // mua lại đất của người khác: gấp 1,5 lần giá đất + nhà
 
 const G = {
   s: null,          // trạng thái ván, lưu được bằng JSON
@@ -50,8 +51,21 @@ const cardsOf = deck => (deck === 'chance' ? CHANCE : CHEST);
 const mortgageValue = i => BOARD[i].price / 2;
 const mortgageInterest = i => Math.ceil(mortgageValue(i) / 10);
 const unmortgageCost = i => mortgageValue(i) + mortgageInterest(i);
-const houseCost = i => GROUPS[BOARD[i].group].house;
+const houseCost = i => BOARD[i].house;
 const isOnline = () => !!(G.s && G.s.room);
+
+/** Giá mua lại ô i từ chủ đất (đất + nhà, gấp BUYOUT_RATE). */
+function buyoutPrice(i) {
+  const pr = G.s.props[i];
+  const houses = BOARD[i].type === 'property' ? pr.houses * houseCost(i) : 0;
+  return Math.round((BOARD[i].price + houses) * BUYOUT_RATE / 10) * 10;
+}
+
+/** Ô i có mua lại được không: đã có chủ khác, không thế chấp, chưa có khách sạn. */
+const canBuyout = (i, pid) => {
+  const pr = G.s.props[i];
+  return pr.owner != null && pr.owner !== pid && !pr.mortgaged && pr.houses < 5;
+};
 
 /** Máy này có được bấm thay người chơi pid không: chơi một máy thì luôn được, online thì chỉ chính người đó. */
 function mine(pid) {
@@ -75,7 +89,7 @@ function managerId() {
   const s = G.s;
   if (!s || s.phase === 'over') return null;
   const pd = s.pending;
-  if (pd) return pd.kind === 'buy' || pd.kind === 'funds' ? pd.pid : null;
+  if (pd) return pd.kind === 'buy' || pd.kind === 'buyout' || pd.kind === 'funds' ? pd.pid : null;
   return s.busy ? null : s.current;
 }
 
@@ -94,10 +108,6 @@ function sortProps(list) {
 
 function hasMonopoly(pid, group) {
   return pid != null && GROUP_SQUARES[group].every(i => G.s.props[i].owner === pid);
-}
-
-function groupHasBuildings(group) {
-  return GROUP_SQUARES[group].some(i => G.s.props[i].houses > 0);
 }
 
 function countType(pid, type) {
@@ -306,6 +316,9 @@ const OPS = {
     const p = G.s.players[t.player];
     G.s.phase = t.dbl && !p.inJail && !p.bankrupt ? 'roll' : 'end';
   },
+  offerBuyout: t => { // chỉ hỏi khi đủ tiền mua lại
+    if (canBuyout(t.sq, t.pid) && G.s.players[t.pid].money >= buyoutPrice(t.sq)) ask({ kind: 'buyout', pid: t.pid, sq: t.sq });
+  },
 };
 
 /** Xử lý câu trả lời cho từng loại câu hỏi. Trả false nếu câu trả lời không hợp lệ. */
@@ -327,6 +340,22 @@ const RESOLVE = {
     } else {
       log(`${N(p)} không mua ${q.name}.`, p.id);
     }
+  },
+
+  /** Mua lại đất của người khác: trả giá mua lại cho chủ đất, nhận cả ô đất lẫn nhà trên đó. */
+  buyout(pd, v) {
+    const s = G.s, p = s.players[pd.pid], q = BOARD[pd.sq];
+    if (v === 'skip') return;
+    if (v !== 'buy' || !canBuyout(pd.sq, p.id)) return false;
+    const price = buyoutPrice(pd.sq), owner = s.players[s.props[pd.sq].owner];
+    if (p.money < price) return false;
+    p.money -= price;
+    owner.money += price;
+    s.props[pd.sq].owner = p.id;
+    fx({ t: 'money', pid: p.id, d: -price });
+    fx({ t: 'money', pid: owner.id, d: price });
+    log(`${N(p)} mua lại ${q.name} của ${N(owner)} với giá ${fmt(price)}.`, p.id);
+    toast(`🏷️ ${N(p)} mua lại ${q.name} giá ${fmt(price)}`);
   },
 
   card(pd, v) {
@@ -554,7 +583,8 @@ function landOnProperty(p, i, ctx) {
     rent = rentFor(i, ctx);
   }
   toast(`${N(p)} trả ${fmt(rent)} tiền thuê cho ${N(owner)}`);
-  pay(p, rent, owner.id, `thuê ${q.name}`);
+  // Trả thuê xong (có thể phải bán nhà / thế chấp trước) thì được hỏi mua lại ô này
+  queue({ op: 'pay', pid: p.id, amount: rent, to: owner.id, reason: `thuê ${q.name}` }, { op: 'offerBuyout', pid: p.id, sq: i });
 }
 
 function offerPurchase(p, i) {
@@ -801,16 +831,14 @@ function manageCheck(i) {
   return null;
 }
 
+/** Sở hữu ô nào là xây nhà được ô đó, không cần đủ nhóm màu (đủ nhóm thì đất trống được nhân đôi tiền thuê). */
 function buildCheck(i) {
   const s = G.s, q = BOARD[i], pr = s.props[i];
   if (q.type !== 'property') return 'Không thể xây trên ô này';
   const m = manageCheck(i);
   if (m) return m;
-  if (!hasMonopoly(pr.owner, q.group)) return 'Cần sở hữu cả nhóm màu';
-  const grp = GROUP_SQUARES[q.group];
-  if (grp.some(j => s.props[j].mortgaged)) return 'Có ô trong nhóm đang thế chấp';
+  if (pr.mortgaged) return 'Ô đất đang thế chấp';
   if (pr.houses >= 5) return 'Đã có khách sạn';
-  if (pr.houses > Math.min(...grp.map(j => s.props[j].houses))) return 'Phải xây đều các ô trong nhóm';
   if (pr.houses === 4 ? s.hotelsLeft <= 0 : s.housesLeft <= 0) return `Ngân hàng đã hết ${pr.houses === 4 ? 'khách sạn' : 'nhà'}`;
   if (s.players[pr.owner].money < houseCost(i)) return 'Không đủ tiền';
   return null;
@@ -821,17 +849,16 @@ function sellCheck(i) {
   const m = manageCheck(i);
   if (m) return m;
   if (q.type !== 'property' || pr.houses === 0) return 'Không có nhà để bán';
-  if (pr.houses < Math.max(...GROUP_SQUARES[q.group].map(j => s.props[j].houses))) return 'Phải bán đều các ô trong nhóm';
   if (pr.houses === 5 && s.housesLeft < 4) return 'Ngân hàng không đủ 4 nhà để đổi lại khách sạn';
   return null;
 }
 
 function mortgageCheck(i) {
-  const q = BOARD[i], pr = G.s.props[i];
+  const pr = G.s.props[i];
   const m = manageCheck(i);
   if (m) return m;
   if (pr.mortgaged) return 'Đã thế chấp';
-  if (q.type === 'property' && groupHasBuildings(q.group)) return 'Phải bán hết nhà trong nhóm màu trước';
+  if (pr.houses > 0) return 'Phải bán hết nhà trên ô này trước';
   return null;
 }
 
@@ -905,8 +932,7 @@ function doUnmortgage(i) {
 const canTradeNow = () => canTurnAct() && !UI.playing && (G.s.phase === 'roll' || G.s.phase === 'end');
 
 function tradeCheck(i) {
-  const q = BOARD[i];
-  return q.type === 'property' && groupHasBuildings(q.group) ? 'Nhóm màu đang có nhà, phải bán nhà trước' : null;
+  return G.s.props[i].houses > 0 ? 'Ô đất đang có nhà, phải bán nhà trước' : null;
 }
 
 const tradeInterest = list => list.filter(i => G.s.props[i].mortgaged).reduce((sum, i) => sum + mortgageInterest(i), 0);
